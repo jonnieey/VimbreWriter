@@ -1,25 +1,25 @@
 # VimbreWriter
 
-*(Unfortunately, vibreoffice was in an experimental stage, and the creator [seanyeh](https://github.com/seanyeh) no longer has much time to work on it. So I guess I'm learning Visual basic to pick up the mantel)*
+*(Unfortunately, vimbrewriter was in an experimental stage, and the creator [seanyeh](https://github.com/seanyeh) no longer has much time to work on it. So I guess I'm learning Visual basic to pick up the mantel)*
 
 VimbreWriter is an extension for Libreoffice and OpenOffice that brings some of
 your favorite key bindings from vi/vim to your favorite office suite, with a heavy focus on librewriter.
 
 Most of the rest of this readme is just going to be the original readme until I actually know what I'm doing.
-As of this first commit the project is not in a working state.
+The project is now in a working state with the most up to date version of libre office
 
 ### Installation/Usage
 
 The easiest way to install is to download the
-[latest extension file](https://raw.github.com/seanyeh/vibreoffice/master/dist/vibreoffice-0.1.4.oxt)
+[latest extension file](https://raw.github.com/TheShadowblast123/vimbrewriter/master/dist/vimbrewriter-1.0.4.oxt)
 and open it with LibreOffice/OpenOffice.
 
-To enable/disable vibreoffice, simply select Tools -> Add-Ons -> vibreoffice.
+To enable/disable vimbrewriter, simply select Tools -> Add-Ons -> vimbrewriter.
 
 If you really want to, you can build the .oxt file yourself by running
 ```shell
 # replace 0.0.0 with your desired version number
-VIBREOFFICE_VERSION="0.0.0" make extension
+VIMBREWRITER_VERSION="0.0.0" make extension
 ```
 This will simply build the extension file from the template files in
 `extension/template`. These template files were auto-generated using
@@ -28,7 +28,7 @@ This will simply build the extension file from the template files in
 
 ### Features
 
-vibreoffice currently supports:
+vimbrewriter currently supports:
 - Insert (`i`, `I`, `a`, `A`, `o`, `O`), Visual (`v`), Normal modes
 - Movement keys: `hjkl`, `w`, `W`, `b`, `B`, `e`, `$`, `^`, `{}`, `()`, `C-d`, `C-u`
     - Search movement: `f`, `F`, `t`, `T`
@@ -42,7 +42,7 @@ vibreoffice currently supports:
 
 ### Known differences/issues
 
-If you are familiar with vi/vim, then vibreoffice should give very few
+If you are familiar with vi/vim, then vimbrewriter should give very few
 surprises. However, there are some differences, primarily due to word
 processor-text editor differences or limitations of the LibreOffice API and/or
 my patience.
@@ -54,7 +54,7 @@ my patience.
     - Unlike vi/vim, movement keys will wrap to the next line
     - Due to line wrapping, you may find your cursor move up/down a line for
       commands that would otherwise leave you in the same position (such as `dd`)
-- vibreoffice does not have contextual awareness. What I mean by that is that
+- vimbrewriter does not have contextual awareness. What I mean by that is that
   it does not keep track of which parentheses/braces match. Hence, you may have
   unexpected behavior (using commands such as `di(`) if your document has
   syntatically uneven parentheses/braces or nesting of such symbols. I don't
@@ -63,9 +63,9 @@ my patience.
 - Using `d`, `c` (or any of their variants) will temporarily bring you into
   Visual mode. This is intentional and should not have any noticeable effects.
 
-vibreoffice is new, so it is bound to have plenty of bugs. Please let me know
+vimbrewriter is new, so it is bound to have plenty of bugs. Please let me know
 if you run into anything!
 
 
 ### License
-vibreoffice is released under the MIT License.
+vimbrewriter is released under the MIT License.
