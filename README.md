@@ -11,7 +11,7 @@ The project is now in a working state with the most up to date version of libre 
 ### Installation/Usage
 
 The easiest way to install is to download the
-[latest extension file](https://raw.github.com/TheShadowblast123/vimbrewriter/master/dist/vimbrewriter-1.0.4.oxt)
+[latest extension file](https://raw.github.com/TheShadowblast123/vimbrewriter/master/dist/vimbrewriter-1.0.0.oxt)
 and open it with LibreOffice/OpenOffice.
 
 To enable/disable vimbrewriter, simply select Tools -> Add-Ons -> vimbrewriter.
