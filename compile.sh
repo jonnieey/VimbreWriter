@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/usr/bin/env bash
+#
 #
 # "Compile" BASIC macro file to LibreOffice-compatible xba file
 
@@ -20,3 +21,4 @@ if [ "$#" -ne 2 ]; then
 else
     compile "$1" "$2"
 fi
+
