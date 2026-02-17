@@ -1,4 +1,3 @@
-
 ' vibreoffice - Vi Mode for LibreOffice/OpenOffice
 '
 ' The MIT License (MIT)
@@ -188,6 +187,8 @@ End Sub
 ' -----------------
 'f,i,a
 global MOVEMENT_MODIFIER As string
+
+
 
 Sub setMovementModifier(modifierName)
     MOVEMENT_MODIFIER = modifierName
@@ -605,9 +606,63 @@ ErrorHandler:
     Resume Next
 End Sub
 
+' Get the current column position (character offset from start of line).
+' Used by dd/cc to preserve horizontal position after deleting a line.
+Function GetCursorColumn() As Integer
+	dim oVC, oText, oSaved, oTest
+	
+	oVC = ThisComponent.CurrentController.getViewCursor()
+	oText = ThisComponent.Text
+	
+	' Save exact current position
+	oSaved = oText.createTextCursorByRange(oVC.getStart())
+	
+	' Work on a duplicate model cursor
+	oTest = oText.createTextCursorByRange(oSaved)
+	
+	' Move duplicate to visual line start using a temporary ViewCursor
+	dim oTempVC
+	oTempVC = ThisComponent.CurrentController.getViewCursor()
+	oTempVC.gotoRange(oSaved.getStart(), False)
+	oTempVC.gotoStartOfLine(False)
+	
+	' Now select from visual start to original position using model cursor
+	oTest.gotoRange(oTempVC, False)
+	oTest.gotoRange(oSaved, True)
+	
+	GetCursorColumn = Len(oTest.getString())
+	
+	' Restore original cursor position explicitly
+	oVC.gotoRange(oSaved, False)
+End Function
+
+
+' Move the cursor to a specific column on the current line, or to the
+' end of the line if the line is shorter than the requested column.
+Sub SetCursorColumn(col As Integer)
+    Dim oVC, oTest As Object
+    Dim i, maxCol As Integer
+
+    oVC = getCursor()
+    If col <= 0 Then 
+    	oVC.gotoStartOfLine(False)
+    	Exit Sub
+    End If
+
+    oVC.gotoStartOfLine(False)
+    oVC.gotoEndOfLine(True)
+
+    maxCol = Len(oVC.getString())
+    oVC.gotoStartOfLine(False)
+    If col > maxCol then col = maxCol
+
+    ' Move right up to desired column
+    oVC.goRight(col, False)
+End Sub
 
 Function ProcessSpecialKey(keyChar)
     dim oTextCursor, bMatched, bIsSpecial, bIsDelete
+    dim savedCol As Integer
     bMatched = True
     bIsSpecial = getSpecial() <> ""
 
@@ -622,12 +677,19 @@ Function ProcessSpecialKey(keyChar)
             bIsSpecialCase = (keyChar = 100 And getSpecial() = "d") Or (keyChar = 99 And getSpecial() = "c") ' 'dd' or 'cc'
 
             If bIsSpecialCase Then
+           		savedCol = GetCursorColumn()
+
                 ProcessMovementKey(94, False)  ' 94='^'
                 ProcessMovementKey(106, True)  ' 106='j'
 
                 oTextCursor = getTextCursor()
                 thisComponent.getCurrentController.Select(oTextCursor)
                 yankSelection(bIsDelete)
+                ' After delete, cursor is at start of the now-current line.
+                ' Restore the horizontal position (or go to end if line is shorter).
+                If bIsDelete Then
+                    SetCursorColumn(savedCol)
+                End If
             Else
                 bMatched = False
             End If
@@ -727,7 +789,8 @@ Function ProcessMovementModifierKey(keyChar)
     dim bMatched
 
     bMatched = True
-    ' 102='f', 116='t', 70='F', 84='T', 105='i', 97='a'
+    ' 102='f', 116='t', 70='F', 84='T', 105='i', 97='a',
+
     Select Case keyChar
         Case 102: setMovementModifier("f") ' 'f'
         Case 116: setMovementModifier("t") ' 't'
@@ -735,6 +798,7 @@ Function ProcessMovementModifierKey(keyChar)
         Case 84:  setMovementModifier("T") ' 'T'
         Case 105: setMovementModifier("i") ' 'i'
         Case 97:  setMovementModifier("a") ' 'a'
+ 
         Case Else:
             bMatched = False
     End Select
@@ -967,6 +1031,10 @@ Function GetSymbol(symbol As String, modifier As String) As Boolean
             symbol = "[" : endSymbol = "]"
         Case "<", ">"
             symbol = "<" : endSymbol = ">"
+        Case "."
+            symbol = "." : endSymbol = "."
+        Case ","
+            symbol = "," : endSymbol = ","
         Case "'":
             symbol = "‘" : endSymbol = "’"
             GetSymbol = FindMatchingPair(symbol, endSymbol, modifier)
