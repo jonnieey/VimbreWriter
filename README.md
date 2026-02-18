@@ -47,25 +47,25 @@ vimbrewriter currently supports:
 
 
 ### Known differences/issues
+- tag block deletion doesn't work, but I don't believe it's necessary,
+  especially given the `iu` and `au` functionality.
+- Movement will differ between Vi and LibreOffice. The goal is close enough.
+- Unlike vi/vim, movement keys will wrap to the next line
+- Due to line wrapping, you may find your cursor move a bit for commands that
+  that would otherwise leave you in the same position (such as `dd`) this has
+  mostly been mitigated but a side effect is `dd` will not deleted entire
+  paragraphs
 
-If you are familiar with vi/vim, then vimbrewriter should give very few
-surprises. However, there are some differences, primarily due to word
-processor-text editor differences or limitations of the LibreOffice API and/or
-my patience.
-- I'm pretty sure I broke `dit`
-- Currently, I am using LibreOffice's built-in word/sentence movement which
-  differs from vi's. It's sort of broken now but I plan to fix it eventually.
-- The concept of lines in a text editor is not quite analogous to that of a
-  word processor. I made my best effort to incorporate the line analogy while keeping
-  the spirit of word processing.
-    - Unlike vi/vim, movement keys will wrap to the next line
-    - Due to line wrapping, you may find your cursor move up/down a line for
-      commands that would otherwise leave you in the same position (such as `dd`)
-      this has mostly been  mitigated but a side effect is `dd` will not deleted
-      entire paragraphs
-
-vimbrewriter is new, so it is bound to have plenty of bugs. Please let me know
-if you run into anything!
+### I found a bug/How do I help
+- If you find a bug or have a suggestion follow these simple steps:
+    - check if there's a pre-existing issue
+        - If there is and the issue is closed, I didn't want to deal with it
+            - either create a pull request or create an issue
+        - If there is and it's open, give information on that issue!
+    - No issue? Create one!
+    - If you know how to program, create a pull request
+        - It is best to create an issue first, or explain what the code is doing
+    - profit   
 
 
 ### License
