@@ -72,7 +72,7 @@ Sub setRawStatus(rawText)
 End Sub
 
 Sub setStatus(statusText)
-    setRawStatus(MODE & " | " & statusText & " | special: " & getSpecial() & " | " & "modifier: " & getMovementModifier() & " | Page: " & getPageNum() & "/" & getPageCount())
+    setRawStatus(MODE & " | " & statusText & " | special: " & getSpecial() & " | " & "modifier: " & getMovementModifier() & " | pages: " & getPageNum() & "/" & getPageCount() & " | words: " & getWordCount() & " | paragraphs: " & getParagraphCount())
 End Sub
 
 Sub setMode(modeName)
@@ -174,6 +174,14 @@ End Function
 
 Function getPageCount()
     getPageCount = thisComponent.CurrentController.PageCount
+End Function
+
+Function getWordCount()
+    getWordCount = thisComponent.WordCount
+End Function
+
+Function getParagraphCount()
+    getParagraphCount = thisComponent.ParagraphCount
 End Function
 
 Sub delaySpecialReset()
