@@ -11,7 +11,7 @@ The project is now in a working state with the most up to date version of libre 
 ### Installation/Usage
 
 The easiest way to install is to download the
-[latest extension file](https://raw.github.com/TheShadowblast123/vimbrewriter/master/dist/vimbrewriter-1.0.0.oxt)
+[latest extension file](https://raw.github.com/TheShadowblast123/vimbrewriter/master/dist/vimbrewriter-1.1.0.oxt)
 and open it with LibreOffice/OpenOffice.
 
 To enable/disable vimbrewriter, simply select Tools -> Add-Ons -> vimbrewriter.
@@ -41,6 +41,9 @@ vimbrewriter currently supports:
 - Copy/paste: `y`, `p`, `P` (using system clipboard, not vim-like registers)
 ### Added functionality
 - (`d`/`c`)(`a`/`i`)(`,`/`.`) Delete/Change Around/Inside Commas/Periods for enhanced word editing
+    - example: `ca,` Change Around Commas
+- (`d`/`c`)(`a`/`i`)`u`(`any`/`any`) Delete/Change Around/Inside almost any two symbols example
+    - example: `diu:.` Delete Inside Colon and Period
 
 
 ### Known differences/issues
