@@ -426,8 +426,8 @@ Function ProcessNumberKey(oEvent)
     key = oEvent.KeyChar
 
     ' 48='0' through 57='9'
-    If key >= 48 and key <= 57 Then
-        addToMultiplier(key - 48)
+    If key >= 49 and key <= 57 Then
+        addToMultiplier(key - 49)
         ProcessNumberKey = True
     Else
         ProcessNumberKey = False
@@ -1005,6 +1005,10 @@ Function ProcessMovementKey(keyChar, Optional bExpand, Optional keyModifiers)
 
     ElseIf keyChar = 71 Then ' 71='G'
         oTextCursor.gotoEnd(bExpand)
+
+    ElseIf keyChar = 48 Then ' '0' (Zero) - Absolute start of line
+        getCursor().gotoStartOfLine(bExpand)
+        bSetCursor = False
 
     ElseIf keyChar = 101 Then                  ' 101='e'
         oTextCursor.goRight(1, bExpand)
