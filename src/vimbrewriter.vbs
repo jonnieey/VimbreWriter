@@ -72,7 +72,7 @@ Sub setRawStatus(rawText)
 End Sub
 
 Sub setStatus(statusText)
-    setRawStatus(MODE & " | Page: " & getPageNum() & "/" & getTotalPages() & " | " & statusText & " | special: " & getSpecial() & " | " & "modifier: " & getMovementModifier())
+    setRawStatus(MODE & " | " & statusText & " | special: " & getSpecial() & " | " & "modifier: " & getMovementModifier() & " | Page: " & getPageNum() & "/" & getTotalPages())
 End Sub
 
 Sub setMode(modeName)
