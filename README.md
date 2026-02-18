@@ -43,7 +43,7 @@ vimbrewriter currently supports:
 - (`d`/`c`)(`a`/`i`)(`,`/`.`) Delete/Change Around/Inside Commas/Periods for enhanced word editing
     - example: `ca,` Change Around Commas
 - (`d`/`c`)(`a`/`i`)`u`(`any`/`any`) Delete/Change Around/Inside almost any two symbols example
-    - example: `diu:.` Delete Inside Colon and Period
+    - example: `diu:.` Delete Inside Unmatched Colon and Period
 
 
 ### Known differences/issues
