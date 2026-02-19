@@ -37,6 +37,10 @@ global MODE as string
 global VIEW_CURSOR as object
 global MULTIPLIER as integer
 
+' --- Added for VISUAL_LINE mode ---
+global VISUAL_BASE as object   ' Position of first selected line in VISUAL_LINE
+' ----------------------------------
+
 ' -----------
 ' Singletons
 ' -----------
@@ -109,6 +113,23 @@ Sub setMode(modeName)
     setRawStatus(modeName)
 End Sub
 
+' --- Added: formatVisualBase for VISUAL_LINE mode ---
+Function formatVisualBase()
+    dim oTextCursor
+    oTextCursor = getTextCursor()
+    VISUAL_BASE = getCursor().getPosition()
+
+    ' Select the current line by moving cursor to start of the line below and
+    ' then back to the start of the current line.
+    getCursor().gotoEndOfLine(False)
+    If getCursor().getPosition().Y() = VISUAL_BASE.Y() Then
+        getCursor().goRight(1, False)
+    End If
+    getCursor().goLeft(1, True)
+    getCursor().gotoStartOfLine(True)
+End Function
+' ----------------------------------------------------
+
 Function gotoMode(sMode)
     Select Case sMode
         Case "NORMAL":
@@ -116,20 +137,15 @@ Function gotoMode(sMode)
             setMovementModifier("")
         Case "INSERT":
             setMode("INSERT")
-        Case "VISUAL", "VISUAL LINE":
-            setMode(sMode)
-            dim oVC
-            oVC = getCursor()
-
-            If sMode = "VISUAL LINE" Then
-                oVC.gotoStartOfLine(False)
-                oVC.gotoEndOfLine(True)
-            Else
-                ' Standard visual mode (select 1 char)
-                oVC.goRight(1, True)
-            End If
-
-            thisComponent.getCurrentController.Select(getTextCursor())
+        Case "VISUAL":
+            setMode("VISUAL")
+            dim oTextCursor
+            oTextCursor = getTextCursor()
+            oTextCursor.gotoRange(oTextCursor.getStart(), False)
+            thisComponent.getCurrentController.Select(oTextCursor)
+        Case "VISUAL_LINE":
+            setMode("VISUAL_LINE")
+            formatVisualBase()
     End Select
 End Function
 
@@ -262,8 +278,6 @@ End Sub
 
 Sub addToMultiplier(n as integer)
     dim sMultiplierStr as String
-    dim iMultiplierInt as integer
-
     ' Max multiplier: 10000 (stop accepting additions after 1000)
     If MULTIPLIER <= 1000 then
         sMultiplierStr = CStr(MULTIPLIER) & CStr(n)
@@ -368,8 +382,8 @@ function KeyHandler_KeyPressed(oEvent) as boolean
     ElseIf ProcessMovementModifierKey(oEvent.KeyChar) Then
         delaySpecialReset()
 
-    ' If standard movement key (in VISUAL mode) like arrow keys, home, end
-    ElseIf MODE = "VISUAL" And ProcessStandardMovementKey(oEvent) Then
+    ' If standard movement key (in VISUAL or VISUAL_LINE mode) like arrow keys, home, end
+    ElseIf (MODE = "VISUAL" Or MODE = "VISUAL_LINE") And ProcessStandardMovementKey(oEvent) Then
         ' Pass
 
     ' If bIsSpecial but nothing matched, return to normal mode
@@ -447,8 +461,7 @@ Function ProcessStandardMovementKey(oEvent)
     c = oEvent.KeyCode
 
     bMatched = True
-
-    If MODE <> "VISUAL" Then
+    If (MODE <> "VISUAL" And MODE <> "VISUAL_LINE") Then
         bMatched = False
         'Pass
     ElseIf c = 1024 Then ' Down arrow
@@ -476,7 +489,7 @@ Function ProcessNumberKey(oEvent)
     key = oEvent.KeyChar
 
     ' 48='0' through 57='9'
-    If key >= 48 and key <= 57 Then
+    If key >= 48 And key <= 57 Then
         addToMultiplier(key - 48)
         ProcessNumberKey = True
     Else
@@ -502,10 +515,10 @@ Function ProcessModeKey(oEvent)
     Select Case key
         ' Insert modes
         ' 105='i', 97='a', 73='I', 65='A', 111='o', 79='O'
-        Case 105, 97, 73, 65, 111, 79:
-            If key = 97  Then getCursor().goRight(1, False) ' 'a': move right before insert
-            If key = 73  Then ProcessMovementKey(94, 1, 0)        ' 'I': go to start of line
-            If key = 65  Then ProcessMovementKey(36, 1, 0)        ' 'A': go to end of line
+        Case 105, 97, 73, 65, 111, 79:   ' i,a,I,A,o,O
+            If key = 97  Then getCursor().goRight(1, False)
+            If key = 73  Then ProcessMovementKey(94, 1, 0)
+            If key = 65  Then ProcessMovementKey(36, 1, 0)
 
             If key = 111 Then ' 'o': open line below
                 ProcessMovementKey(36, 1, 0)  ' '$'
@@ -513,7 +526,7 @@ Function ProcessModeKey(oEvent)
                 getCursor().setString(chr(13))
                 If Not getCursor().isAtStartOfLine() Then
                     getCursor().setString(chr(13) & chr(13))
-                    ProcessMovementKey(108, 1, 0) ' 'l'
+                    ProcessMovementKey(108, 1, 0)
                 End If
             End If
 
@@ -532,7 +545,7 @@ Function ProcessModeKey(oEvent)
             gotoMode("VISUAL")
 
         Case 86: ' 86='V'
-            gotoMode("VISUAL LINE")
+            gotoMode("VISUAL_LINE")
         Case Else:
             bMatched = False
     End Select
@@ -544,7 +557,7 @@ Function ProcessNormalKey(keyChar, modifiers)
     dim i, bMatched, bIsVisual, iMultiplier, iRawMultiplier, bIsControl
     bIsControl = (modifiers = 2) or (modifiers = 8)
 
-    bIsVisual = (MODE = "VISUAL") or (MODE = "VISUAL LINE") ' is this hardcoding bad? what about visual block?
+    bIsVisual = (MODE = "VISUAL" Or MODE = "VISUAL_LINE")
 
     iMultiplier = getMultiplier()
     iRawMultiplier = getRawMultiplier()
@@ -577,9 +590,9 @@ Function ProcessNormalKey(keyChar, modifiers)
     ' 2. Undo/Redo
     ' --------------------
     ' 117='u', 114='r' (Ctrl+r = redo)
-    If keyChar = 117 Or (bIsControl And keyChar = 114) Then ' 'u' or Ctrl+'r'
+    If keyChar = 117 Or (bIsControl And keyChar = 114) Then   ' u or Ctrl+r
         For i = 1 To iMultiplier
-            Undo(keyChar = 117) ' 117='u'
+            Undo(keyChar = 117)
         Next i
 
         ProcessNormalKey = True
@@ -596,7 +609,7 @@ Function ProcessNormalKey(keyChar, modifiers)
     ' 112='p', 80='P'
     If keyChar = 112 or keyChar = 80 Then ' 'p' or 'P'
         ' Move cursor right if "p" to paste after cursor
-        If keyChar = 112 Then ' 'p'
+        If keyChar = 112 Then
             ProcessMovementKey(108, 1, 0, False) ' 108='l'
         End If
 
@@ -614,22 +627,21 @@ Function ProcessNormalKey(keyChar, modifiers)
     If keyChar = 47 Then 
         Dim frameFind as Object
         Dim dispatcherFind as Object
-        
+
         frameFind = thisComponent.CurrentController.Frame
         dispatcherFind = createUnoService("com.sun.star.frame.DispatchHelper")
         
         ' Uses the specific findbar protocol to focus the search bar
         dispatcherFind.executeDispatch(frameFind, "vnd.sun.star.findbar:FocusToFindbar", "", 0, Array())
-        
+
         ProcessNormalKey = True
         Exit Function
     End If
 
     ' 92 is the key code for '\'
-    If keyChar = 92 Then 
+    If keyChar = 92 Then   ' \
         Dim frame as Object
         Dim dispatcher as Object
-        
         frame = thisComponent.CurrentController.Frame
         dispatcher = createUnoService("com.sun.star.frame.DispatchHelper")
         
@@ -746,14 +758,14 @@ Function ProcessSpecialKey(keyChar)
     bIsSpecial = getSpecial() <> ""
 
     ' 100='d', 99='c', 115='s', 121='y'
-    If keyChar = 100 Or keyChar = 99 Or keyChar = 115 Or keyChar = 121 Then ' 'd','c','s','y'
-        bIsDelete = (keyChar <> 121) ' 121='y'
+    If keyChar = 100 Or keyChar = 99 Or keyChar = 115 Or keyChar = 121 Then   ' d,c,s,y
+        bIsDelete = (keyChar <> 121)
 
         ' Special Cases: 'dd' and 'cc'
         If bIsSpecial Then
             dim bIsSpecialCase
             ' 100='d', 99='c'
-            bIsSpecialCase = (keyChar = 100 And getSpecial() = "d") Or (keyChar = 99 And getSpecial() = "c") ' 'dd' or 'cc'
+            bIsSpecialCase = (keyChar = 100 And getSpecial() = "d") Or (keyChar = 99 And getSpecial() = "c")
 
             If bIsSpecialCase Then
            		savedCol = GetCursorColumn()
@@ -782,15 +794,15 @@ Function ProcessSpecialKey(keyChar)
 
 
         ' visual mode: delete selection
-        ElseIf (MODE = "VISUAL") Or (MODE = "VISUAL LINE") Then
+        ElseIf MODE = "VISUAL" Or MODE = "VISUAL_LINE" Then
             oTextCursor = getTextCursor()
             thisComponent.getCurrentController.Select(oTextCursor)
 
             yankSelection(bIsDelete)
 
             ' 99='c', 115='s', 100='d', 121='y'
-            If keyChar = 99 Or keyChar = 115 Then gotoMode("INSERT") ' 'c' or 's'
-            If keyChar = 100 Or keyChar = 121 Then gotoMode("NORMAL") ' 'd' or 'y'
+            If keyChar = 99 Or keyChar = 115 Then gotoMode("INSERT")
+            If keyChar = 100 Or keyChar = 121 Then gotoMode("NORMAL")
 
 
         ' Enter Special mode: 'd', 'c', or 'y' ('s' => 'cl')
@@ -829,7 +841,7 @@ Function ProcessSpecialKey(keyChar)
 
     ' 68='D', 67='C'
     ElseIf keyChar = 68 Or keyChar = 67 Then ' 'D' or 'C'
-        If MODE = "VISUAL" Then
+        If MODE = "VISUAL" Or MODE = "VISUAL_LINE" Then
             ProcessMovementKey(94, 1, 0, False)  ' 94='^'
             ProcessMovementKey(36, 1, 0, True)   ' 36='$'
             ProcessMovementKey(108, 1, 0, True)  ' 108='l'
@@ -996,12 +1008,6 @@ Function ProcessMovementKey(keyChar, iMultiplier, iRawMultiplier, Optional bExpa
         Else
             bMatched = False
         End If
-
-        If bMatched And MODE = "VISUAL LINE" Then
-            getCursor().gotoStartOfLine(True)
-            getCursor().gotoEndOfLine(True)
-        End If
-
         ProcessMovementKey = bMatched
         Exit Function
     End If
@@ -1040,16 +1046,70 @@ Function ProcessMovementKey(keyChar, iMultiplier, iRawMultiplier, Optional bExpa
     ElseIf keyChar = 104 Then ' 104='h'
         For i = 1 to iMultiplier : oTextCursor.goLeft(1, bExpand) : Next i
 
-    ' oTextCursor.goUp and oTextCursor.goDown SHOULD work, but doesn't (I dont know why).
-    ' So this is a weird hack
-    ElseIf keyChar = 107 Then ' 107='k'
-        For i = 1 to iMultiplier : getCursor().goUp(1, bExpand) : Next i
-        bSetCursor = False
+    ' --- Enhanced j/k with VISUAL_LINE support ---
+    ElseIf keyChar = 107 Then   ' k
+        If MODE = "VISUAL_LINE" Then
+            For i = 1 to iMultiplier
+                dim lastSelected
+                If getCursor().getPosition().Y() <= VISUAL_BASE.Y() Then
+                    lastSelected = getCursor().getPosition().Y()
+                    If VISUAL_BASE.Y() = getCursor().getPosition().Y() Then
+                        getCursor().gotoEndOfLine(False)
+                        If getCursor().getPosition().Y() = VISUAL_BASE.Y() Then
+                            getCursor().goRight(1, False)
+                        End If
+                    End If
+                    Do Until getCursor().getPosition().Y() < lastSelected
+                        If NOT getCursor().goUp(1, bExpand) Then Exit Do
+                    Loop
+                    getCursor().gotoStartOfLine(bExpand)
+                ElseIf getCursor().getPosition().Y() > VISUAL_BASE.Y() Then
+                    getCursor().goUp(1, bExpand)
+                    lastSelected = getCursor().getPosition().Y()
+                    getCursor().goUp(1, bExpand)
+                    If getCursor().getPosition().Y() = VISUAL_BASE.Y() Then
+                        formatVisualBase()
+                    Else
+                        getCursor().gotoEndOfLine(bExpand)
+                        If getCursor().getPosition().Y() < lastSelected Then
+                            getCursor().goRight(1, bExpand)
+                        End If
+                    End If
+                End If
+            Next i
+            bSetCursor = False
+        Else
+            For i = 1 to iMultiplier : getCursor().goUp(1, bExpand) : Next i
+            bSetCursor = False
+        End If
 
     ElseIf keyChar = 106 Then ' 106='j'
-        For i = 1 to iMultiplier : getCursor().goDown(1, bExpand) : Next i
-        bSetCursor = False
-    ' ----------
+        If MODE = "VISUAL_LINE" Then
+            For i = 1 to iMultiplier
+                If getCursor().getPosition().Y() >= VISUAL_BASE.Y() Then
+                    If VISUAL_BASE.Y() = getCursor().getPosition().Y() Then
+                        getCursor().gotoStartOfLine(False)
+                        getCursor().gotoEndOfLine(bExpand)
+                        If getCursor().getPosition().Y() = VISUAL_BASE.Y() Then
+                            getCursor().goRight(1, bExpand)
+                        End If
+                    End If
+                    If getCursor().goDown(1, bExpand) Then
+                        getCursor().gotoStartOfLine(bExpand)
+                    Else
+                        getCursor().gotoEndOfLine(bExpand)
+                    End If
+                ElseIf getCursor().getPosition().Y() < VISUAL_BASE.Y() Then
+                    getCursor().goDown(1, bExpand)
+                    getCursor().gotoStartOfLine(bExpand)
+                End If
+            Next i
+            bSetCursor = False
+        Else
+            For i = 1 to iMultiplier : getCursor().goDown(1, bExpand) : Next i
+            bSetCursor = False
+        End If
+    ' ---------------------------------------------
 
     ElseIf keyChar = 94 Then ' 94='^'
         getCursor().gotoStartOfLine(bExpand)
@@ -1077,17 +1137,31 @@ Function ProcessMovementKey(keyChar, iMultiplier, iRawMultiplier, Optional bExpa
     ElseIf keyChar = 103 Then ' 103='g'
         If iRawMultiplier > 0 Then 
             Dim targetPage As Integer
-            Dim itotalPages As Integer
-
             targetPage = iMultiplier
             itotalPages = getPageCount()
             If targetPage > itotalPages Then targetPage = itotalPages
-
             getCursor().jumpToPage(targetPage, bExpand)
             oTextCursor.gotoRange(getCursor().getStart(), bExpand)
-        ElseIf getSpecial() = "g" Then 
-            ' Handle 'gg' (goto start of document)
-            getCursor().gotoStart(bExpand)
+        ElseIf getSpecial() = "g" Then
+            ' Handle gg with visual modes
+            If MODE = "VISUAL" Then
+                dim oldPosG
+                oldPosG = getCursor().getPosition()
+                getCursor().gotoRange(getCursor().getStart(), True)
+                If NOT samePos(getCursor().getPosition(), oldPosG) Then
+                    getCursor().gotoRange(getCursor().getEnd(), False)
+                End If
+            ElseIf MODE = "VISUAL_LINE" Then
+                Do Until getCursor().getPosition().Y() <= VISUAL_BASE.Y()
+                    getCursor().goUp(1, False)
+                Loop
+                If getCursor().getPosition().Y() = VISUAL_BASE.Y() Then
+                    formatVisualBase()
+                End If
+            End If
+            dim bExpandLocal
+            bExpandLocal = (MODE = "VISUAL" Or MODE = "VISUAL_LINE")
+            getCursor().gotoStart(bExpandLocal)
             bSetCursor = False
             resetSpecial(True)
         Else
