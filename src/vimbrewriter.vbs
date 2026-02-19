@@ -87,15 +87,20 @@ Function gotoMode(sMode)
             setMovementModifier("")
         Case "INSERT":
             setMode("INSERT")
-        Case "VISUAL":
-            setMode("VISUAL")
+        Case "VISUAL", "VISUAL LINE":
+            setMode(sMode)
+            dim oVC
+            oVC = getCursor()
 
-            dim oTextCursor
-            oTextCursor = getTextCursor()
-            ' Deselect TextCursor
-            oTextCursor.gotoRange(oTextCursor.getStart(), False)
-            ' Show TextCursor selection
-            thisComponent.getCurrentController.Select(oTextCursor)
+            If sMode = "VISUAL LINE" Then
+                oVC.gotoStartOfLine(False)
+                oVC.gotoEndOfLine(True)
+            Else
+                ' Standard visual mode (select 1 char)
+                oVC.goRight(1, True)
+            End If
+
+            thisComponent.getCurrentController.Select(getTextCursor())
     End Select
 End Function
 
@@ -496,6 +501,9 @@ Function ProcessModeKey(oEvent)
             gotoMode("INSERT")
         Case 118: ' 118='v'
             gotoMode("VISUAL")
+
+        Case 86: ' 86='V'
+            gotoMode("VISUAL LINE")
         Case Else:
             bMatched = False
     End Select
@@ -507,7 +515,7 @@ Function ProcessNormalKey(keyChar, modifiers)
     dim i, bMatched, bIsVisual, iMultiplier, iRawMultiplier, bIsControl
     bIsControl = (modifiers = 2) or (modifiers = 8)
 
-    bIsVisual = (MODE = "VISUAL") ' is this hardcoding bad? what about visual block?
+    bIsVisual = (MODE = "VISUAL") or (MODE = "VISUAL LINE") ' is this hardcoding bad? what about visual block?
 
     iMultiplier = getMultiplier()
     iRawMultiplier = getRawMultiplier()
@@ -745,7 +753,7 @@ Function ProcessSpecialKey(keyChar)
 
 
         ' visual mode: delete selection
-        ElseIf MODE = "VISUAL" Then
+        ElseIf (MODE = "VISUAL") Or (MODE = "VISUAL LINE") Then
             oTextCursor = getTextCursor()
             thisComponent.getCurrentController.Select(oTextCursor)
 
@@ -958,6 +966,11 @@ Function ProcessMovementKey(keyChar, iMultiplier, iRawMultiplier, Optional bExpa
             Next i
         Else
             bMatched = False
+        End If
+
+        If bMatched And MODE = "VISUAL LINE" Then
+            getCursor().gotoStartOfLine(True)
+            getCursor().gotoEndOfLine(True)
         End If
 
         ProcessMovementKey = bMatched

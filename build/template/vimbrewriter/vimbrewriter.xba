@@ -90,15 +90,21 @@ Function gotoMode(sMode)
             setMovementModifier(&quot;&quot;)
         Case &quot;INSERT&quot;:
             setMode(&quot;INSERT&quot;)
-        Case &quot;VISUAL&quot;:
-            setMode(&quot;VISUAL&quot;)
-
-            dim oTextCursor
-            oTextCursor = getTextCursor()
-            &apos; Deselect TextCursor
-            oTextCursor.gotoRange(oTextCursor.getStart(), False)
-            &apos; Show TextCursor selection
-            thisComponent.getCurrentController.Select(oTextCursor)
+        Case &quot;VISUAL&quot;, &quot;VISUAL LINE&quot;:
+            setMode(sMode)
+            dim oVC
+            oVC = getCursor()
+            
+            If sMode = &quot;VISUAL LINE&quot; Then
+                oVC.gotoStartOfLine(False)
+                oVC.gotoEndOfLine(True)
+            Else
+                &apos; Standard visual mode (select 1 char)
+                oVC.goRight(1, True)
+            End If
+            
+            &apos; Sync text cursor and show selection
+            thisComponent.getCurrentController.Select(getTextCursor())
     End Select
 End Function
 
@@ -499,6 +505,9 @@ Function ProcessModeKey(oEvent)
             gotoMode(&quot;INSERT&quot;)
         Case 118: &apos; 118=&apos;v&apos;
             gotoMode(&quot;VISUAL&quot;)
+
+        Case 86: &apos; 86=&apos;V&apos;
+            gotoMode(&quot;VISUAL LINE&quot;)
         Case Else:
             bMatched = False
     End Select
@@ -510,7 +519,7 @@ Function ProcessNormalKey(keyChar, modifiers)
     dim i, bMatched, bIsVisual, iMultiplier, iRawMultiplier, bIsControl
     bIsControl = (modifiers = 2) or (modifiers = 8)
 
-    bIsVisual = (MODE = &quot;VISUAL&quot;) &apos; is this hardcoding bad? what about visual block?
+    bIsVisual = (MODE = &quot;VISUAL&quot;) or (MODE = &quot;VISUAL LINE&quot;) &apos; is this hardcoding bad? what about visual block?
 
     iMultiplier = getMultiplier()
     iRawMultiplier = getRawMultiplier()
@@ -748,7 +757,7 @@ Function ProcessSpecialKey(keyChar)
 
 
         &apos; visual mode: delete selection
-        ElseIf MODE = &quot;VISUAL&quot; Then
+        ElseIf (MODE = &quot;VISUAL&quot;) Or (MODE = &quot;VISUAL LINE&quot;) Then
             oTextCursor = getTextCursor()
             thisComponent.getCurrentController.Select(oTextCursor)
 
@@ -961,6 +970,14 @@ Function ProcessMovementKey(keyChar, iMultiplier, iRawMultiplier, Optional bExpa
             Next i
         Else
             bMatched = False
+        End If
+
+        If bMatched And MODE = &quot;VISUAL LINE&quot; Then
+            &apos; Ensure the active end of the selection encompasses the full current line.
+            &apos; We snap to the start then the end to ensure the whole line is captured 
+            &apos; regardless of which direction we moved.
+            getCursor().gotoStartOfLine(True)
+            getCursor().gotoEndOfLine(True)
         End If
 
         ProcessMovementKey = bMatched
