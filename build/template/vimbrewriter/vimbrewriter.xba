@@ -75,7 +75,7 @@ Sub setRawStatus(rawText)
 End Sub
 
 Sub setStatus(statusText)
-    setRawStatus(MODE &amp; &quot; | &quot; &amp; statusText &amp; &quot; | special: &quot; &amp; getSpecial() &amp; &quot; | &quot; &amp; &quot;modifier: &quot; &amp; getMovementModifier() &amp; &quot; | Page: &quot; &amp; getPageNum() &amp; &quot;/&quot; &amp; getPageCount() &amp; &quot; | words: &quot; &amp; getWordCount() &amp; &quot; | paragraphs: &quot; &amp; getParagraphCount())
+    setRawStatus(MODE &amp; &quot; | &quot; &amp; statusText &amp; &quot; | special: &quot; &amp; getSpecial() &amp; &quot; | &quot; &amp; &quot;modifier: &quot; &amp; getMovementModifier() &amp; &quot; | pages: &quot; &amp; getPageNum() &amp; &quot;/&quot; &amp; getPageCount() &amp; &quot; | words: &quot; &amp; getWordCount() &amp; &quot; | paragraphs: &quot; &amp; getParagraphCount())
 End Sub
 
 Sub setMode(modeName)
@@ -421,17 +421,17 @@ Function ProcessStandardMovementKey(oEvent)
         bMatched = False
         &apos;Pass
     ElseIf c = 1024 Then &apos; Down arrow
-        ProcessMovementKey(106, True) &apos; 106=&apos;j&apos;
+        ProcessMovementKey(106, 1, 0, True) &apos; 106=&apos;j&apos;
     ElseIf c = 1025 Then &apos; Up arrow
-        ProcessMovementKey(107, True) &apos; 107=&apos;k&apos;
+        ProcessMovementKey(107, 1, 0, True) &apos; 107=&apos;k&apos;
     ElseIf c = 1026 Then &apos; Left arrow
-        ProcessMovementKey(104, True) &apos; 104=&apos;h&apos;
+        ProcessMovementKey(104, 1, 0, True) &apos; 104=&apos;h&apos;
     ElseIf c = 1027 Then &apos; Right arrow
-        ProcessMovementKey(108, True) &apos; 108=&apos;l&apos;
+        ProcessMovementKey(108, 1, 0, True) &apos; 108=&apos;l&apos;
     ElseIf c = 1028 Then &apos; Home
-        ProcessMovementKey(94, True)  &apos; 94=&apos;^&apos;
+        ProcessMovementKey(94, 1, 0, True)  &apos; 94=&apos;^&apos;
     ElseIf c = 1029 Then &apos; End
-        ProcessMovementKey(36, True)  &apos; 36=&apos;$&apos;
+        ProcessMovementKey(36, 1, 0, True)  &apos; 36=&apos;$&apos;
     Else
         bMatched = False
     End If
@@ -473,26 +473,26 @@ Function ProcessModeKey(oEvent)
         &apos; 105=&apos;i&apos;, 97=&apos;a&apos;, 73=&apos;I&apos;, 65=&apos;A&apos;, 111=&apos;o&apos;, 79=&apos;O&apos;
         Case 105, 97, 73, 65, 111, 79:
             If key = 97  Then getCursor().goRight(1, False) &apos; &apos;a&apos;: move right before insert
-            If key = 73  Then ProcessMovementKey(94)        &apos; &apos;I&apos;: go to start of line
-            If key = 65  Then ProcessMovementKey(36)        &apos; &apos;A&apos;: go to end of line
+            If key = 73  Then ProcessMovementKey(94, 1, 0)        &apos; &apos;I&apos;: go to start of line
+            If key = 65  Then ProcessMovementKey(36, 1, 0)        &apos; &apos;A&apos;: go to end of line
 
             If key = 111 Then &apos; &apos;o&apos;: open line below
-                ProcessMovementKey(36)  &apos; &apos;$&apos;
-                ProcessMovementKey(108) &apos; &apos;l&apos;
+                ProcessMovementKey(36, 1, 0)  &apos; &apos;$&apos;
+                ProcessMovementKey(108, 1, 0) &apos; &apos;l&apos;
                 getCursor().setString(chr(13))
                 If Not getCursor().isAtStartOfLine() Then
                     getCursor().setString(chr(13) &amp; chr(13))
-                    ProcessMovementKey(108) &apos; &apos;l&apos;
+                    ProcessMovementKey(108, 1, 0) &apos; &apos;l&apos;
                 End If
             End If
 
             If key = 79 Then &apos; &apos;O&apos;: open line above
-                ProcessMovementKey(94)  &apos; &apos;^&apos;
+                ProcessMovementKey(94, 1, 0)  &apos; &apos;^&apos;
                 getCursor().setString(chr(13))
                 If Not getCursor().isAtStartOfLine() Then
-                    ProcessMovementKey(104) &apos; &apos;h&apos;
+                    ProcessMovementKey(104, 1, 0) &apos; &apos;h&apos;
                     getCursor().setString(chr(13))
-                    ProcessMovementKey(108) &apos; &apos;l&apos;
+                    ProcessMovementKey(108, 1, 0) &apos; &apos;l&apos;
                 End If
             End If
 
@@ -507,28 +507,23 @@ End Function
 
 
 Function ProcessNormalKey(keyChar, modifiers)
-    dim i, bMatched, bIsVisual, iIterations, bIsControl
+    dim i, bMatched, bIsVisual, iMultiplier, iRawMultiplier, bIsControl
     bIsControl = (modifiers = 2) or (modifiers = 8)
 
     bIsVisual = (MODE = &quot;VISUAL&quot;) &apos; is this hardcoding bad? what about visual block?
+    
+    iMultiplier = getMultiplier()
+    iRawMultiplier = getRawMultiplier()
 
     &apos; ----------------------
     &apos; 1. Check Movement Key
     &apos; ----------------------
-    iIterations = getMultiplier()
-    bMatched = False
-    For i = 1 To iIterations
-        dim bMatchedMovement
+    bMatched = ProcessMovementKey(keyChar, iMultiplier, iRawMultiplier, bIsVisual, modifiers)
 
-        &apos; Movement Key
-        bMatchedMovement = ProcessMovementKey(keyChar, bIsVisual, modifiers)
-        bMatched = bMatched or bMatchedMovement
-
-        &apos; If Special: d/c + movement
-        If bMatched And (getSpecial() = &quot;d&quot; Or getSpecial() = &quot;c&quot; Or getSpecial() = &quot;y&quot;) Then
-            yankSelection((getSpecial() &lt;&gt; &quot;y&quot;))
-        End If
-    Next i
+    &apos; If Special: d/c + movement
+    If bMatched And (getSpecial() = &quot;d&quot; Or getSpecial() = &quot;c&quot; Or getSpecial() = &quot;y&quot;) Then
+        yankSelection((getSpecial() &lt;&gt; &quot;y&quot;))
+    End If
 
     &apos; Reset Movement Modifier
     setMovementModifier(&quot;&quot;)
@@ -549,7 +544,7 @@ Function ProcessNormalKey(keyChar, modifiers)
     &apos; --------------------
     &apos; 117=&apos;u&apos;, 114=&apos;r&apos; (Ctrl+r = redo)
     If keyChar = 117 Or (bIsControl And keyChar = 114) Then &apos; &apos;u&apos; or Ctrl+&apos;r&apos;
-        For i = 1 To iIterations
+        For i = 1 To iMultiplier
             Undo(keyChar = 117) &apos; 117=&apos;u&apos;
         Next i
 
@@ -568,10 +563,10 @@ Function ProcessNormalKey(keyChar, modifiers)
     If keyChar = 112 or keyChar = 80 Then &apos; &apos;p&apos; or &apos;P&apos;
         &apos; Move cursor right if &quot;p&quot; to paste after cursor
         If keyChar = 112 Then &apos; &apos;p&apos;
-            ProcessMovementKey(108, False) &apos; 108=&apos;l&apos;
+            ProcessMovementKey(108, 1, 0, False) &apos; 108=&apos;l&apos;
         End If
 
-        For i = 1 To iIterations
+        For i = 1 To iMultiplier
             pasteSelection()
         Next i
 
@@ -624,9 +619,9 @@ Function ProcessNormalKey(keyChar, modifiers)
     &apos; Only &apos;x&apos; or Special (dd, cc) can be done more than once
     &apos; 120=&apos;x&apos;
     If keyChar &lt;&gt; 120 and getSpecial() = &quot;&quot; Then &apos; 120=&apos;x&apos;
-        iIterations = 1
+        iMultiplier = 1
     End If
-    For i = 1 To iIterations
+    For i = 1 To iMultiplier
         dim bMatchedSpecial
 
         &apos; Special/Delete Key
@@ -729,8 +724,8 @@ Function ProcessSpecialKey(keyChar)
             If bIsSpecialCase Then
            		savedCol = GetCursorColumn()
 
-                ProcessMovementKey(94, False)  &apos; 94=&apos;^&apos;
-                ProcessMovementKey(106, True)  &apos; 106=&apos;j&apos;
+                ProcessMovementKey(94, 1, 0, False)  &apos; 94=&apos;^&apos;
+                ProcessMovementKey(106, 1, 0, True)  &apos; 106=&apos;j&apos;
 
                 oTextCursor = getTextCursor()
                 thisComponent.getCurrentController.Select(oTextCursor)
@@ -801,15 +796,15 @@ Function ProcessSpecialKey(keyChar)
     &apos; 68=&apos;D&apos;, 67=&apos;C&apos;
     ElseIf keyChar = 68 Or keyChar = 67 Then &apos; &apos;D&apos; or &apos;C&apos;
         If MODE = &quot;VISUAL&quot; Then
-            ProcessMovementKey(94, False)  &apos; 94=&apos;^&apos;
-            ProcessMovementKey(36, True)   &apos; 36=&apos;$&apos;
-            ProcessMovementKey(108, True)  &apos; 108=&apos;l&apos;
+            ProcessMovementKey(94, 1, 0, False)  &apos; 94=&apos;^&apos;
+            ProcessMovementKey(36, 1, 0, True)   &apos; 36=&apos;$&apos;
+            ProcessMovementKey(108, 1, 0, True)  &apos; 108=&apos;l&apos;
         Else
             &apos; Deselect
             oTextCursor = getTextCursor()
             oTextCursor.gotoRange(oTextCursor.getStart(), False)
             thisComponent.getCurrentController.Select(oTextCursor)
-            ProcessMovementKey(36, True) &apos; 36=&apos;$&apos;
+            ProcessMovementKey(36, 1, 0, True) &apos; 36=&apos;$&apos;
         End If
 
         yankSelection(True)
@@ -822,8 +817,8 @@ Function ProcessSpecialKey(keyChar)
 
     &apos; 83=&apos;S&apos;, only valid in NORMAL mode
     ElseIf keyChar = 83 And MODE = &quot;NORMAL&quot; Then &apos; &apos;S&apos;
-        ProcessMovementKey(94, False) &apos; 94=&apos;^&apos;
-        ProcessMovementKey(36, True)  &apos; 36=&apos;$&apos;
+        ProcessMovementKey(94, 1, 0, False) &apos; 94=&apos;^&apos;
+        ProcessMovementKey(36, 1, 0, True)  &apos; 36=&apos;$&apos;
         yankSelection(True)
         gotoMode(&quot;INSERT&quot;)
 
@@ -946,8 +941,8 @@ End Function
 &apos; -----------------------
 &apos;   Default: bExpand = False, keyModifiers = 0
 &apos;   keyChar is an ASCII integer (e.g. 104 for &apos;h&apos;)
-Function ProcessMovementKey(keyChar, Optional bExpand, Optional keyModifiers)
-    dim oTextCursor, bSetCursor, bMatched
+Function ProcessMovementKey(keyChar, iMultiplier, iRawMultiplier, Optional bExpand, Optional keyModifiers)
+    dim oTextCursor, bSetCursor, bMatched, i
     oTextCursor = getTextCursor()
     bMatched = True
     If IsMissing(bExpand) Then bExpand = False
@@ -961,9 +956,13 @@ Function ProcessMovementKey(keyChar, Optional bExpand, Optional keyModifiers)
 
         &apos; Ctrl+d (100) and Ctrl+u (117)
         If bIsControl and keyChar = 100 Then &apos; 100=&apos;d&apos;
-            getCursor().ScreenDown(bExpand)
+            For i = 1 to iMultiplier
+                getCursor().ScreenDown(bExpand)
+            Next i
         ElseIf bIsControl and keyChar = 117 Then &apos; 117=&apos;u&apos;
-            getCursor().ScreenUp(bExpand)
+            For i = 1 to iMultiplier
+                getCursor().ScreenUp(bExpand)
+            Next i
         Else
             bMatched = False
         End If
@@ -1001,19 +1000,19 @@ Function ProcessMovementKey(keyChar, Optional bExpand, Optional keyModifiers)
     &apos; ---------------------------------
 
     ElseIf keyChar = 108 Then &apos; 108=&apos;l&apos;
-        oTextCursor.goRight(1, bExpand)
+        For i = 1 to iMultiplier : oTextCursor.goRight(1, bExpand) : Next i
 
     ElseIf keyChar = 104 Then &apos; 104=&apos;h&apos;
-        oTextCursor.goLeft(1, bExpand)
+        For i = 1 to iMultiplier : oTextCursor.goLeft(1, bExpand) : Next i
 
     &apos; oTextCursor.goUp and oTextCursor.goDown SHOULD work, but doesn&apos;t (I dont know why).
     &apos; So this is a weird hack
     ElseIf keyChar = 107 Then &apos; 107=&apos;k&apos;
-        getCursor().goUp(1, bExpand)
+        For i = 1 to iMultiplier : getCursor().goUp(1, bExpand) : Next i
         bSetCursor = False
 
     ElseIf keyChar = 106 Then &apos; 106=&apos;j&apos;
-        getCursor().goDown(1, bExpand)
+        For i = 1 to iMultiplier : getCursor().goDown(1, bExpand) : Next i
         bSetCursor = False
     &apos; ----------
 
@@ -1037,11 +1036,22 @@ Function ProcessMovementKey(keyChar, Optional bExpand, Optional keyModifiers)
         bSetCursor = False
 
     ElseIf keyChar = 119 Or keyChar = 87 Then &apos; 119=&apos;w&apos;, 87=&apos;W&apos;
-        oTextCursor.gotoNextWord(bExpand)
+        For i = 1 to iMultiplier : oTextCursor.gotoNextWord(bExpand) : Next i
     ElseIf keyChar = 98 Or keyChar = 66 Then  &apos; 98=&apos;b&apos;, 66=&apos;B&apos;
-        oTextCursor.gotoPreviousWord(bExpand)
+        For i = 1 to iMultiplier : oTextCursor.gotoPreviousWord(bExpand) : Next i
     ElseIf keyChar = 103 Then &apos; 103=&apos;g&apos;
-        If getSpecial() = &quot;g&quot; Then 
+        If iRawMultiplier &gt; 0 Then &apos; multiplier was explicitly provided
+            Dim targetPage As Integer
+            Dim itotalPages As Integer
+
+            targetPage = iMultiplier
+            itotalPages = getPageCount()
+            If targetPage &gt; itotalPages Then targetPage = itotalPages
+
+            getCursor().jumpToPage(targetPage, bExpand)
+            oTextCursor.gotoRange(getCursor().getStart(), bExpand)
+
+        ElseIf getSpecial() = &quot;g&quot; Then 
             &apos; Handle &apos;gg&apos; (goto start of document)
             getCursor().gotoStart(bExpand)
             bSetCursor = False
@@ -1057,17 +1067,19 @@ Function ProcessMovementKey(keyChar, Optional bExpand, Optional keyModifiers)
         oTextCursor.gotoEnd(bExpand)
 
     ElseIf keyChar = 101 Then                  &apos; 101=&apos;e&apos;
-        oTextCursor.goRight(1, bExpand)
-        oTextCursor.gotoEndOfWord(bExpand)
+        For i = 1 to iMultiplier 
+            oTextCursor.goRight(1, bExpand)
+            oTextCursor.gotoEndOfWord(bExpand)
+        Next i
 
     ElseIf keyChar = 41 Then &apos; 41=&apos;)&apos;
-        oTextCursor.gotoNextSentence(bExpand)
+        For i = 1 to iMultiplier : oTextCursor.gotoNextSentence(bExpand) : Next i
     ElseIf keyChar = 40 Then &apos; 40=&apos;(&apos;
-        oTextCursor.gotoPreviousSentence(bExpand)
+        For i = 1 to iMultiplier : oTextCursor.gotoPreviousSentence(bExpand) : Next i
     ElseIf keyChar = 125 Then &apos; 125=&apos;}&apos;
-        oTextCursor.gotoNextParagraph(bExpand)
+        For i = 1 to iMultiplier : oTextCursor.gotoNextParagraph(bExpand) : Next i
     ElseIf keyChar = 123 Then &apos; 123=&apos;{&apos;
-        oTextCursor.gotoPreviousParagraph(bExpand)
+        For i = 1 to iMultiplier : oTextCursor.gotoPreviousParagraph(bExpand) : Next i
 
     Else
         bSetCursor = False
