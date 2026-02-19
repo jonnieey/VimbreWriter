@@ -40,10 +40,14 @@ global MULTIPLIER as integer
 ' --- Added for VISUAL_LINE mode ---
 global VISUAL_BASE as object   ' Position of first selected line in VISUAL_LINE
 ' ----------------------------------
+global LAST_PAGE as integer
+global oSelectionListener as object
 
 ' -----------
 ' Singletons
 ' -----------
+
+
 Function getCursor
     getCursor = VIEW_CURSOR
 End Function
@@ -86,6 +90,20 @@ Function PadRight(text As String, length As Integer) As String
     End If
     PadRight = s
 End Function
+
+Sub SelectionChange_selectionChanged(oEvent)
+    On Error Goto ErrorHandler
+    If Not VIBREOFFICE_ENABLED Then Exit Sub
+    Dim currentPage As Integer
+    currentPage = getPageNum()
+    If currentPage <> LAST_PAGE Then
+        LAST_PAGE = currentPage
+        setStatus(getMultiplier())
+    End If
+    Exit Sub
+ErrorHandler:
+    ' Ignore
+End Sub
 
 Sub setStatus(statusText)
     Dim nTotalPages As Long
@@ -312,6 +330,9 @@ End Sub
 
 Sub sStopXKeyHandler
     thisComponent.CurrentController.removeKeyHandler(oXKeyHandler)
+    If Not IsNull(oSelectionListener) Then
+        ThisComponent.CurrentController.removeSelectionChangeListener(oSelectionListener)
+    End If
 End Sub
 
 Sub XKeyHandler_Disposing(oEvent)
@@ -1325,6 +1346,11 @@ Sub initVibreoffice
     End If
 
     sStartXKeyHandler()
+
+    ' selection change listener to track page changes
+    LAST_PAGE = getPageNum()
+    oSelectionListener = CreateUnoListener("SelectionChange_", "com.sun.star.view.XSelectionChangeListener")
+    ThisComponent.CurrentController.addSelectionChangeListener(oSelectionListener)
 
 End Sub
 
