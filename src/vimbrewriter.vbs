@@ -105,6 +105,10 @@ ErrorHandler:
     ' Ignore
 End Sub
 
+Sub SelectionChange_disposing(oEvent)
+    ' Required by XEventListener interface; do nothing.
+End Sub
+
 Sub setStatus(statusText)
     Dim nTotalPages As Long
     Dim nCurrentPage As Integer
