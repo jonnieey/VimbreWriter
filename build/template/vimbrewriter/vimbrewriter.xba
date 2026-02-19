@@ -49,21 +49,7 @@ global oSelectionListener as object
 &apos; -----------
 &apos; Singletons
 &apos; -----------
-&apos;
 
-Sub SelectionChange_selectionChanged(oEvent)
-    On Error Goto ErrorHandler
-    If Not VIBREOFFICE_ENABLED Then Exit Sub
-    Dim currentPage As Integer
-    currentPage = getPageNum()
-    If currentPage &lt;&gt; LAST_PAGE Then
-        LAST_PAGE = currentPage
-        setStatus(getMultiplier())
-    End If
-    Exit Sub
-ErrorHandler:
-    &apos; Ignore
-End Sub
 
 Function getCursor
     getCursor = VIEW_CURSOR
@@ -108,6 +94,20 @@ Function PadRight(text As String, length As Integer) As String
     PadRight = s
 End Function
 
+Sub SelectionChange_selectionChanged(oEvent)
+    On Error Goto ErrorHandler
+    If Not VIBREOFFICE_ENABLED Then Exit Sub
+    Dim currentPage As Integer
+    currentPage = getPageNum()
+    If currentPage &lt;&gt; LAST_PAGE Then
+        LAST_PAGE = currentPage
+        setStatus(getMultiplier())
+    End If
+    Exit Sub
+ErrorHandler:
+    &apos; Ignore
+End Sub
+
 Sub setStatus(statusText)
     Dim nTotalPages As Long
     Dim nCurrentPage As Integer
@@ -150,6 +150,75 @@ Function formatVisualBase()
     getCursor().gotoStartOfLine(True)
 End Function
 &apos; ----------------------------------------------------
+Function MoveWordBackward(oTC As Object, bExpand As Boolean) As Boolean
+    &apos; Moves the text cursor oTC backward to the start of the previous word.
+    &apos; Returns True if movement occurred, False if at document start.
+    On Error Goto ErrorHandler
+    
+    Dim dc_db As Boolean
+    dc_db = False
+    Dim bMoved As Boolean
+    bMoved = False
+    
+    &apos; Special handling for start of paragraph
+    If oTC.isStartOfParagraph() Then
+        If oTC.goLeft(1, bExpand) Then
+            bMoved = True
+            If getSpecial() = &quot;c&quot; Or getSpecial() = &quot;d&quot; Then
+                dc_db = True
+                oTC.collapseToStart()
+            End If
+        Else
+            &apos; At document start
+            MoveWordBackward = False
+            Exit Function
+        End If
+    Else
+        &apos; If we are at start of a word, move left once to get out of it
+        If oTC.isStartOfWord() Then
+            If Not oTC.goLeft(1, bExpand) Then
+                MoveWordBackward = False
+                Exit Function
+            End If
+            bMoved = True
+        End If
+    End If
+    
+    &apos; Move left until start of word or empty line
+    Do While Not (oTC.isStartOfWord() Or (oTC.isStartOfParagraph() And oTC.isEndOfParagraph()))
+        If Not oTC.goLeft(1, bExpand) Then
+            Exit Do
+        End If
+        bMoved = True
+    Loop
+    
+    If Not bMoved Then
+        MoveWordBackward = False
+        Exit Function
+    End If
+    
+    &apos; Handle special case for delete/change commands
+    If dc_db Then
+        Dim oTC2 As Object
+        Set oTC2 = getCursor().getText.createTextCursorByRange(oTC)
+        Do While Not (oTC2.isEndOfWord() Or oTC2.isStartOfParagraph())
+            If Not oTC2.goLeft(1, bExpand) Then Exit Do
+        Loop
+        If oTC2.isStartOfParagraph() Then
+            Set oTC = oTC2
+            oTC.gotoRange(oTC.getStart(), bExpand)
+            If getSpecial() = &quot;d&quot; Then
+                oTC.goRight(1, bExpand)
+            End If
+        End If
+    End If
+    
+    MoveWordBackward = True
+    Exit Function
+    
+ErrorHandler:
+    MoveWordBackward = False
+End Function
 
 Function gotoMode(sMode)
     Select Case sMode
@@ -1153,11 +1222,16 @@ Function ProcessMovementKey(keyChar, iMultiplier, iRawMultiplier, Optional bExpa
         End If
 
         bSetCursor = False
-
     ElseIf keyChar = 119 Or keyChar = 87 Then &apos; 119=&apos;w&apos;, 87=&apos;W&apos;
         For i = 1 to iMultiplier : oTextCursor.gotoNextWord(bExpand) : Next i
-    ElseIf keyChar = 98 Or keyChar = 66 Then  &apos; 98=&apos;b&apos;, 66=&apos;B&apos;
-        For i = 1 to iMultiplier : oTextCursor.gotoPreviousWord(bExpand) : Next i
+    ElseIf keyChar = 98 Or keyChar = 66 Then    &apos;98=b, 66=B
+        &apos; Custom word-backward movement
+        For i = 1 to iMultiplier
+            If Not MoveWordBackward(oTextCursor, bExpand) Then
+                Exit For
+            End If
+        Next i
+        bSetCursor = True
     ElseIf keyChar = 103 Then &apos; 103=&apos;g&apos;
         If iRawMultiplier &gt; 0 Then 
             Dim targetPage As Integer
@@ -1350,8 +1424,8 @@ Sub initVibreoffice
 
     sStartXKeyHandler()
 
-    &apos; --- selection change listener ---
-    LAST_PAGE = getPageNum()   &apos; initialize
+    &apos; selection change listener to track page changes
+    LAST_PAGE = getPageNum()
     oSelectionListener = CreateUnoListener(&quot;SelectionChange_&quot;, &quot;com.sun.star.view.XSelectionChangeListener&quot;)
     ThisComponent.CurrentController.addSelectionChangeListener(oSelectionListener)
 

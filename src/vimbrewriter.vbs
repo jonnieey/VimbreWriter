@@ -147,6 +147,75 @@ Function formatVisualBase()
     getCursor().gotoStartOfLine(True)
 End Function
 ' ----------------------------------------------------
+Function MoveWordBackward(oTC As Object, bExpand As Boolean) As Boolean
+    ' Moves the text cursor oTC backward to the start of the previous word.
+    ' Returns True if movement occurred, False if at document start.
+    On Error Goto ErrorHandler
+    
+    Dim dc_db As Boolean
+    dc_db = False
+    Dim bMoved As Boolean
+    bMoved = False
+    
+    ' Special handling for start of paragraph
+    If oTC.isStartOfParagraph() Then
+        If oTC.goLeft(1, bExpand) Then
+            bMoved = True
+            If getSpecial() = "c" Or getSpecial() = "d" Then
+                dc_db = True
+                oTC.collapseToStart()
+            End If
+        Else
+            ' At document start
+            MoveWordBackward = False
+            Exit Function
+        End If
+    Else
+        ' If we are at start of a word, move left once to get out of it
+        If oTC.isStartOfWord() Then
+            If Not oTC.goLeft(1, bExpand) Then
+                MoveWordBackward = False
+                Exit Function
+            End If
+            bMoved = True
+        End If
+    End If
+    
+    ' Move left until start of word or empty line
+    Do While Not (oTC.isStartOfWord() Or (oTC.isStartOfParagraph() And oTC.isEndOfParagraph()))
+        If Not oTC.goLeft(1, bExpand) Then
+            Exit Do
+        End If
+        bMoved = True
+    Loop
+    
+    If Not bMoved Then
+        MoveWordBackward = False
+        Exit Function
+    End If
+    
+    ' Handle special case for delete/change commands
+    If dc_db Then
+        Dim oTC2 As Object
+        Set oTC2 = getCursor().getText.createTextCursorByRange(oTC)
+        Do While Not (oTC2.isEndOfWord() Or oTC2.isStartOfParagraph())
+            If Not oTC2.goLeft(1, bExpand) Then Exit Do
+        Loop
+        If oTC2.isStartOfParagraph() Then
+            Set oTC = oTC2
+            oTC.gotoRange(oTC.getStart(), bExpand)
+            If getSpecial() = "d" Then
+                oTC.goRight(1, bExpand)
+            End If
+        End If
+    End If
+    
+    MoveWordBackward = True
+    Exit Function
+    
+ErrorHandler:
+    MoveWordBackward = False
+End Function
 
 Function gotoMode(sMode)
     Select Case sMode
@@ -1150,11 +1219,16 @@ Function ProcessMovementKey(keyChar, iMultiplier, iRawMultiplier, Optional bExpa
         End If
 
         bSetCursor = False
-
     ElseIf keyChar = 119 Or keyChar = 87 Then ' 119='w', 87='W'
         For i = 1 to iMultiplier : oTextCursor.gotoNextWord(bExpand) : Next i
-    ElseIf keyChar = 98 Or keyChar = 66 Then  ' 98='b', 66='B'
-        For i = 1 to iMultiplier : oTextCursor.gotoPreviousWord(bExpand) : Next i
+    ElseIf keyChar = 98 Or keyChar = 66 Then    '98=b, 66=B
+        ' Custom word-backward movement
+        For i = 1 to iMultiplier
+            If Not MoveWordBackward(oTextCursor, bExpand) Then
+                Exit For
+            End If
+        Next i
+        bSetCursor = True
     ElseIf keyChar = 103 Then ' 103='g'
         If iRawMultiplier > 0 Then 
             Dim targetPage As Integer
