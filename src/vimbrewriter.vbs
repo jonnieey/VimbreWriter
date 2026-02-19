@@ -119,9 +119,10 @@ Sub setStatus(statusText)
     Dim sMod As String : sMod = PadRight("modifier: " & getMovementModifier(), 12)
     Dim sPage As String : sPage = PadRight("page: " & nCurrentPage & "/" & nTotalPages, 14)
     Dim sParagraphs As String : sParagraphs = PadRight("paragraphs: " & getParagraphCount() , 17)
-    Dim sWords As String : sWords = "Words: " & getWordCount()
+    Dim sWords As String : sWords = PadRight("Words: " & getWordCount(), 13)
+    Dim sFileName As String : sFileName = "File: " & getCurrentFileName()
 
-    sFinalStatus = sMode & " | " & sStatusText & " | " & sSpec & "  | " & sMod & " | " & sPage & " | " & sParagraphs & " | " & sWords
+    sFinalStatus = sMode & " | " & sStatusText & " | " & sSpec & "  | " & sMod & " | " & sPage & " | " & sParagraphs & " | " & sWords & " | " & sFileName
 
     setRawStatus(sFinalStatus)
 End Sub
@@ -310,7 +311,7 @@ Function getPageNum()
 End Function
 
 Function getPageCount()
-    getPageCount = thisComponent.CurrentController.PageCount
+    getPageCount = thisComponent.PageCount
 End Function
 
 Function getWordCount()
@@ -319,6 +320,10 @@ End Function
 
 Function getParagraphCount()
     getParagraphCount = thisComponent.ParagraphCount
+End Function
+
+Function getCurrentFileName()
+    getCurrentFileName = thisComponent.getTitle()
 End Function
 
 Sub delaySpecialReset()
