@@ -1161,7 +1161,14 @@ Function ProcessMovementKey(keyChar, iMultiplier, iRawMultiplier, Optional bExpa
         Select Case getMovementModifier()
             ' f,F,t,T searching — convert int keyChar to string for search
             Case "f", "t", "F", "T":
-                bMatched = ProcessSearchKey(oTextCursor, getMovementModifier(), Chr(keyChar), bExpand)
+                bMatched = False
+                For i = 1 To iMultiplier
+                    If ProcessSearchKey(oTextCursor, getMovementModifier(), Chr(keyChar), bExpand) Then
+                        bMatched = True
+                    Else
+                        Exit For
+                    End If
+                Next i
             Case "a", "i":
                 bMatched = GetSymbol(Chr(keyChar), getMovementModifier())
                 bSetCursor = False
