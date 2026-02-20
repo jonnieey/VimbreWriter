@@ -850,6 +850,41 @@ Sub SetCursorColumn(col As Integer)
     oVC.goRight(col, False)
 End Sub
 
+Function GetLineTextCursor(Optional bIncludeBreak As Boolean) As Object
+    ' Returns a text cursor that selects the current line.
+    ' If bIncludeBreak is True (default), includes the paragraph break.
+    Dim oVC, oText, oStartCursor, oEndCursor, oSavedPos
+    Set oVC = getCursor()
+    Set oText = oVC.getText()
+    
+    If IsMissing(bIncludeBreak) Then bIncludeBreak = True
+    
+    ' Save original cursor position
+    Set oSavedPos = oVC.getStart()
+    
+    ' Move to start of line
+    oVC.gotoStartOfLine(False)
+    Set oStartCursor = oText.createTextCursorByRange(oVC.getStart())
+    
+    ' Move to end of line
+    oVC.gotoEndOfLine(False)
+    If bIncludeBreak Then
+        ' Try to include the newline character (if any)
+        oVC.goRight(1, False)
+    End If
+    Set oEndCursor = oText.createTextCursorByRange(oVC.getStart())
+    
+    ' Restore original cursor position
+    oVC.gotoRange(oSavedPos, False)
+    
+    ' Create a cursor spanning from start to end
+    Dim oLineCursor
+    Set oLineCursor = oText.createTextCursorByRange(oStartCursor.getStart())
+    oLineCursor.gotoRange(oEndCursor.getStart(), True)
+    
+    Set GetLineTextCursor = oLineCursor
+End Function
+
 Function ProcessSpecialKey(keyChar)
     dim oTextCursor, bMatched, bIsSpecial, bIsDelete
     dim savedCol As Integer
@@ -867,16 +902,17 @@ Function ProcessSpecialKey(keyChar)
             bIsSpecialCase = (keyChar = 100 And getSpecial() = "d") Or (keyChar = 99 And getSpecial() = "c")
 
             If bIsSpecialCase Then
-           		savedCol = GetCursorColumn()
 
-                ProcessMovementKey(94, 1, 0, False)  ' 94='^'
-                ProcessMovementKey(106, 1, 0, True)  ' 106='j'
-
-                oTextCursor = getTextCursor()
-                thisComponent.getCurrentController.Select(oTextCursor)
+                savedCol = GetCursorColumn()
+                
+                ' Select the current line (including paragraph break)
+                Dim oLineCursor
+                Set oLineCursor = GetLineTextCursor(True)
+                thisComponent.getCurrentController.Select(oLineCursor)
+                
                 yankSelection(bIsDelete)
-                ' After delete, cursor is at start of the now-current line.
-                ' Restore the horizontal position (or go to end if line is shorter).
+
+                ' After deletion, cursor is at the start of the next line (or previous if EOF)
                 If bIsDelete Then
                     SetCursorColumn(savedCol)
                 End If
