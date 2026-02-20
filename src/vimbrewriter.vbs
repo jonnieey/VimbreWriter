@@ -562,21 +562,23 @@ Function ProcessStandardMovementKey(oEvent)
     bMatched = True
     If (MODE <> "VISUAL" And MODE <> "VISUAL_LINE") Then
         bMatched = False
-        'Pass
-    ElseIf c = 1024 Then ' Down arrow
-        ProcessMovementKey(106, 1, 0, True) ' 106='j'
-    ElseIf c = 1025 Then ' Up arrow
-        ProcessMovementKey(107, 1, 0, True) ' 107='k'
-    ElseIf c = 1026 Then ' Left arrow
-        ProcessMovementKey(104, 1, 0, True) ' 104='h'
-    ElseIf c = 1027 Then ' Right arrow
-        ProcessMovementKey(108, 1, 0, True) ' 108='l'
-    ElseIf c = 1028 Then ' Home
-        ProcessMovementKey(94, 1, 0, True) ' 94='^'
-    ElseIf c = 1029 Then ' End
-        ProcessMovementKey(36, 1, 0, True) ' 36='$'
     Else
-        bMatched = False
+        Select Case c
+            Case 1024 ' Down arrow
+                ProcessMovementKey(106, 1, 0, True) ' 106='j'
+            Case 1025 ' Up arrow
+                ProcessMovementKey(107, 1, 0, True) ' 107='k'
+            Case 1026 ' Left arrow
+                ProcessMovementKey(104, 1, 0, True) ' 104='h'
+            Case 1027 ' Right arrow
+                ProcessMovementKey(108, 1, 0, True) ' 108='l'
+            Case 1028 ' Home
+                ProcessMovementKey(94, 1, 0, True) ' 94='^'
+            Case 1029 ' End
+                ProcessMovementKey(36, 1, 0, True) ' 36='$'
+            Case Else
+                bMatched = False
+        End Select
     End If
 
     ProcessStandardMovementKey = bMatched
@@ -816,6 +818,7 @@ Sub Undo(bUndo)
     Resume Next
 End Sub
 
+
 ' Get the current column position (character offset from start of line).
 ' Used by dd/cc to preserve horizontal position after deleting a line.
 Function GetCursorColumn() As Integer
@@ -911,121 +914,95 @@ Function ProcessSpecialKey(keyChar)
     bMatched = True
     bIsSpecial = getSpecial() <> ""
 
-    ' 100='d', 99='c', 115='s', 121='y'
-    If keyChar = 100 Or keyChar = 99 Or keyChar = 115 Or keyChar = 121 Then ' d,c,s,y
-        bIsDelete = (keyChar <> 121)
+    Select Case keyChar
+        Case 100, 99, 115, 121 ' d,c,s,y
+            bIsDelete = (keyChar <> 121)
 
-        ' Special Cases: 'dd' and 'cc'
-        If bIsSpecial Then
-            Dim bIsSpecialCase
-            ' 100='d', 99='c'
-            bIsSpecialCase = (keyChar = 100 And getSpecial() = "d") Or (keyChar = 99 And getSpecial() = "c")
-
-            If bIsSpecialCase Then
-
-                savedCol = GetCursorColumn()
-
-                ' Select the current line (including paragraph break)
-                Dim oLineCursor
-                Set oLineCursor = GetLineTextCursor(True)
-                thisComponent.getCurrentController.Select(oLineCursor)
-
-                yankSelection(bIsDelete)
-
-                ' After deletion, cursor is at the start of the next line (or previous if EOF)
-                If bIsDelete Then
-                    SetCursorColumn(savedCol)
+            If bIsSpecial Then
+                Dim bIsSpecialCase
+                bIsSpecialCase = (keyChar = 100 And getSpecial() = "d") Or (keyChar = 99 And getSpecial() = "c")
+                If bIsSpecialCase Then
+                    savedCol = GetCursorColumn()
+                    Dim oLineCursor
+                    Set oLineCursor = GetLineTextCursor(True)
+                    thisComponent.getCurrentController.Select(oLineCursor)
+                    yankSelection(bIsDelete)
+                    If bIsDelete Then
+                        SetCursorColumn(savedCol)
+                    End If
+                Else
+                    bMatched = False
                 End If
-            Else
+                If bIsSpecialCase And keyChar = 99 Then
+                    gotoMode("INSERT")
+                Else
+                    gotoMode("NORMAL")
+                End If
+            ElseIf MODE = "VISUAL" Or MODE = "VISUAL_LINE" Then
+                oTextCursor = getTextCursor()
+                thisComponent.getCurrentController.Select(oTextCursor)
+                yankSelection(bIsDelete)
+                If keyChar = 99 Or keyChar = 115 Then gotoMode("INSERT")
+                If keyChar = 100 Or keyChar = 121 Then gotoMode("NORMAL")
+            ElseIf MODE = "NORMAL" Then
+                If keyChar = 115 Then
+                    setSpecial("c")
+                    gotoMode("VISUAL")
+                    ProcessNormalKey(108, 0) ' 108='l'
+                Else
+                    setSpecial(Chr(keyChar))
+                    gotoMode("VISUAL")
+                End If
+            End If
+
+        Case 114 ' r
+            setSpecial("r")
+
+        Case Else
+            If bIsSpecial Then
                 bMatched = False
-            End If
-
-            ' Go to INSERT mode after 'cc', otherwise NORMAL
-            If bIsSpecialCase And keyChar = 99 Then ' 99='c'
-                gotoMode("INSERT")
             Else
-                gotoMode("NORMAL")
+                Select Case keyChar
+                    Case 120 ' x
+                        oTextCursor = getTextCursor()
+                        thisComponent.getCurrentController.Select(oTextCursor)
+                        yankSelection(True)
+                        cursorReset(oTextCursor)
+                        gotoMode("NORMAL")
+
+                    Case 68, 67 ' D, C
+                        If MODE = "VISUAL" Or MODE = "VISUAL_LINE" Then
+                            ProcessMovementKey(94, 1, 0, False)
+                            ProcessMovementKey(36, 1, 0, True)
+                            ProcessMovementKey(108, 1, 0, True)
+                        Else
+                            oTextCursor = getTextCursor()
+                            oTextCursor.gotoRange(oTextCursor.getStart(), False)
+                            thisComponent.getCurrentController.Select(oTextCursor)
+                            ProcessMovementKey(36, 1, 0, True)
+                        End If
+                        yankSelection(True)
+                        If keyChar = 68 Then
+                            gotoMode("NORMAL")
+                        Else
+                            gotoMode("INSERT")
+                        End If
+
+                    Case 83 ' S
+                        If MODE = "NORMAL" Then
+                            ProcessMovementKey(94, 1, 0, False)
+                            ProcessMovementKey(36, 1, 0, True)
+                            yankSelection(True)
+                            gotoMode("INSERT")
+                        Else
+                            bMatched = False
+                        End If
+
+                    Case Else
+                        bMatched = False
+                End Select
             End If
-
-
-            ' visual mode: delete selection
-        ElseIf MODE = "VISUAL" Or MODE = "VISUAL_LINE" Then
-            oTextCursor = getTextCursor()
-            thisComponent.getCurrentController.Select(oTextCursor)
-
-            yankSelection(bIsDelete)
-
-            ' 99='c', 115='s', 100='d', 121='y'
-            If keyChar = 99 Or keyChar = 115 Then gotoMode("INSERT")
-            If keyChar = 100 Or keyChar = 121 Then gotoMode("NORMAL")
-
-
-            ' Enter Special mode: 'd', 'c', or 'y' ('s' => 'cl')
-        ElseIf MODE = "NORMAL" Then
-
-            ' 115='s' => 'cl'
-            If keyChar = 115 Then ' 's'
-                setSpecial("c")
-                gotoMode("VISUAL")
-                ProcessNormalKey(108, 0) ' 108='l'
-            Else
-                setSpecial(Chr(keyChar)) ' store as string for getSpecial() comparisons
-                gotoMode("VISUAL")
-            End If
-        End If
-
-        ' If is 'r' for replace: 114='r'
-    ElseIf keyChar = 114 Then ' 'r'
-        setSpecial("r")
-
-        ' Otherwise, ignore if bIsSpecial
-    ElseIf bIsSpecial Then
-        bMatched = False
-
-        ' 120='x'
-    ElseIf keyChar = 120 Then ' 'x'
-        oTextCursor = getTextCursor()
-        thisComponent.getCurrentController.Select(oTextCursor)
-        yankSelection(True)
-
-        ' Reset Cursor
-        cursorReset(oTextCursor)
-
-        ' Goto NORMAL mode (in the case of VISUAL mode)
-        gotoMode("NORMAL")
-
-        ' 68='D', 67='C'
-    ElseIf keyChar = 68 Or keyChar = 67 Then ' 'D' or 'C'
-        If MODE = "VISUAL" Or MODE = "VISUAL_LINE" Then
-            ProcessMovementKey(94, 1, 0, False) ' 94='^'
-            ProcessMovementKey(36, 1, 0, True) ' 36='$'
-            ProcessMovementKey(108, 1, 0, True) ' 108='l'
-        Else
-            ' Deselect
-            oTextCursor = getTextCursor()
-            oTextCursor.gotoRange(oTextCursor.getStart(), False)
-            thisComponent.getCurrentController.Select(oTextCursor)
-            ProcessMovementKey(36, 1, 0, True) ' 36='$'
-        End If
-
-        yankSelection(True)
-
-        If keyChar = 68 Then ' 'D'
-            gotoMode("NORMAL")
-        ElseIf keyChar = 67 Then ' 'C'
-            gotoMode("INSERT")
-        End If
-
-        ' 83='S', only valid in NORMAL mode
-    ElseIf keyChar = 83 And MODE = "NORMAL" Then ' 'S'
-        ProcessMovementKey(94, 1, 0, False) ' 94='^'
-        ProcessMovementKey(36, 1, 0, True) ' 36='$'
-        yankSelection(True)
-        gotoMode("INSERT")
-
-    Else
-        bMatched = False
-    End If
+    End Select
 
     ProcessSpecialKey = bMatched
 End Function
@@ -1202,205 +1179,211 @@ Function ProcessMovementKey(keyChar, iMultiplier, iRawMultiplier, Optional bExpa
         End If
         ' ---------------------------------
 
-    ElseIf keyChar = 108 Then ' 108='l'
-        For i = 1 To iMultiplier : oTextCursor.goRight(1, bExpand) : Next i
-
-    ElseIf keyChar = 104 Then ' 104='h'
-        For i = 1 To iMultiplier : oTextCursor.goLeft(1, bExpand) : Next i
-
-        ' --- Enhanced j/k with VISUAL_LINE support ---
-    ElseIf keyChar = 107 Then ' k
-        If MODE = "VISUAL_LINE" Then
-            For i = 1 To iMultiplier
-                Dim lastSelected
-                If getCursor().getPosition().Y() <= VISUAL_BASE.Y() Then
-                    lastSelected = getCursor().getPosition().Y()
-                    If VISUAL_BASE.Y() = getCursor().getPosition().Y() Then
-                        getCursor().gotoEndOfLine(False)
-                        If getCursor().getPosition().Y() = VISUAL_BASE.Y() Then
-                            getCursor().goRight(1, False)
-                        End If
-                    End If
-                    Do Until getCursor().getPosition().Y() < lastSelected
-                        If Not getCursor().goUp(1, bExpand) Then Exit Do
-                    Loop
-                    getCursor().gotoStartOfLine(bExpand)
-                ElseIf getCursor().getPosition().Y() > VISUAL_BASE.Y() Then
-                    getCursor().goUp(1, bExpand)
-                    lastSelected = getCursor().getPosition().Y()
-                    getCursor().goUp(1, bExpand)
-                    If getCursor().getPosition().Y() = VISUAL_BASE.Y() Then
-                        formatVisualBase()
-                    Else
-                        getCursor().gotoEndOfLine(bExpand)
-                        If getCursor().getPosition().Y() < lastSelected Then
-                            getCursor().goRight(1, bExpand)
-                        End If
-                    End If
-                End If
-            Next i
-            bSetCursor = False
-        Else
-            For i = 1 To iMultiplier : getCursor().goUp(1, bExpand) : Next i
-            bSetCursor = False
-        End If
-
-    ElseIf keyChar = 106 Then ' 106='j'
-        If MODE = "VISUAL_LINE" Then
-            For i = 1 To iMultiplier
-                If getCursor().getPosition().Y() >= VISUAL_BASE.Y() Then
-                    If VISUAL_BASE.Y() = getCursor().getPosition().Y() Then
-                        getCursor().gotoStartOfLine(False)
-                        getCursor().gotoEndOfLine(bExpand)
-                        If getCursor().getPosition().Y() = VISUAL_BASE.Y() Then
-                            getCursor().goRight(1, bExpand)
-                        End If
-                    End If
-                    If getCursor().goDown(1, bExpand) Then
-                        getCursor().gotoStartOfLine(bExpand)
-                    Else
-                        getCursor().gotoEndOfLine(bExpand)
-                    End If
-                ElseIf getCursor().getPosition().Y() < VISUAL_BASE.Y() Then
-                    getCursor().goDown(1, bExpand)
-                    getCursor().gotoStartOfLine(bExpand)
-                End If
-            Next i
-            bSetCursor = False
-        Else
-            For i = 1 To iMultiplier : getCursor().goDown(1, bExpand) : Next i
-            bSetCursor = False
-        End If
-        ' ---------------------------------------------
-        '
-    ElseIf keyChar = 48 Then ' 48='0'
-        getCursor().gotoStartOfLine(bExpand)
-        bSetCursor = False
-
-    ElseIf keyChar = 94 Then ' 94='^'
-        ' --- Move cursor to the first non‑whitespace character on the current line ---
-        Dim originalLineY
-        originalLineY = getCursor().getPosition().Y()
-
-        ' Temporarily select the entire line to extract its text.
-        getCursor().gotoEndOfLine(False)
-        If getCursor().getPosition().Y() > originalLineY Then
-            ' If we landed on the next line (line was exactly one character long), move back.
-            getCursor().goLeft(1, False)
-        End If
-        getCursor().gotoStartOfLine(True)
-        Dim lineText As String
-        lineText = getCursor().String
-
-        ' Restore the original cursor (and any existing selection) before moving.
-        getCursor().gotoRange(oTextCursor, False)
-        getCursor().gotoStartOfLine(bExpand) ' Start from column 0
-
-        ' Find the index (1‑based) of the first character that is not a space or tab.
-        Dim firstNonBlankPos As Integer
-        firstNonBlankPos = 1
-        Do While firstNonBlankPos <= Len(lineText)
-            Dim ch As String
-            ch = Mid(lineText, firstNonBlankPos, 1)
-            If ch <> " " And ch <> Chr(9) Then ' space or tab
-                Exit Do
-            End If
-            firstNonBlankPos = firstNonBlankPos + 1
-        Loop
-
-        ' If the line is empty or all whitespace, stay at column 0.
-        If firstNonBlankPos > Len(lineText) Then
-            firstNonBlankPos = 1
-        End If
-
-        ' Move right to the first non‑blank character.
-        getCursor().goRight(firstNonBlankPos - 1, bExpand)
-
-        bSetCursor = False ' We already moved the view cursor directly
-
-    ElseIf keyChar = 36 Then ' 36='$'
-        Dim oldPos, newPos
-        oldPos = getCursor().getPosition()
-        getCursor().gotoEndOfLine(bExpand)
-        newPos = getCursor().getPosition()
-
-        ' If the result is at the start of the line, then it must have
-        ' jumped down a line; goLeft to return to the previous line.
-        '   Except for: Empty lines (check for oldPos = newPos)
-        If getCursor().isAtStartOfLine() And oldPos.Y() <> newPos.Y() Then
-            getCursor().goLeft(1, bExpand)
-        End If
-
-        bSetCursor = False
-    ElseIf keyChar = 119 Or keyChar = 87 Then ' 119='w', 87='W'
-        For i = 1 To iMultiplier : oTextCursor.gotoNextWord(bExpand) : Next i
-    ElseIf keyChar = 98 Or keyChar = 66 Then '98=b, 66=B
-        ' Custom word-backward movement
-        For i = 1 To iMultiplier
-            If Not MoveWordBackward(oTextCursor, bExpand) Then
-                Exit For
-            End If
-        Next i
-        bSetCursor = True
-    ElseIf keyChar = 103 Then ' 103='g'
-        If iRawMultiplier > 0 Then
-            Dim targetPage As Integer
-            Dim itotalPages As Integer
-            targetPage = iMultiplier
-            itotalPages = getPageCount()
-            If targetPage > itotalPages Then targetPage = itotalPages
-            getCursor().jumpToPage(targetPage, bExpand)
-            oTextCursor.gotoRange(getCursor().getStart(), bExpand)
-        ElseIf getSpecial() = "g" Then
-            ' Handle gg with visual modes
-            If MODE = "VISUAL" Then
-                Dim oldPosG
-                oldPosG = getCursor().getPosition()
-                getCursor().gotoRange(getCursor().getStart(), True)
-                If Not samePos(getCursor().getPosition(), oldPosG) Then
-                    getCursor().gotoRange(getCursor().getEnd(), False)
-                End If
-            ElseIf MODE = "VISUAL_LINE" Then
-                Do Until getCursor().getPosition().Y() <= VISUAL_BASE.Y()
-                    getCursor().goUp(1, False)
-                Loop
-                If getCursor().getPosition().Y() = VISUAL_BASE.Y() Then
-                    formatVisualBase()
-                End If
-            End If
-            Dim bExpandLocal
-            bExpandLocal = (MODE = "VISUAL" Or MODE = "VISUAL_LINE")
-            getCursor().gotoStart(bExpandLocal)
-            bSetCursor = False
-            resetSpecial(True)
-        Else
-            ' Set special 'g' and wait for the next key
-            setSpecial("g")
-            bMatched = True
-            bSetCursor = False
-        End If
-
-    ElseIf keyChar = 71 Then ' 71='G'
-        oTextCursor.gotoEnd(bExpand)
-
-    ElseIf keyChar = 101 Then ' 101='e'
-        For i = 1 To iMultiplier
-            oTextCursor.goRight(1, bExpand)
-            oTextCursor.gotoEndOfWord(bExpand)
-        Next i
-
-    ElseIf keyChar = 41 Then ' 41=')'
-        For i = 1 To iMultiplier : oTextCursor.gotoNextSentence(bExpand) : Next i
-    ElseIf keyChar = 40 Then ' 40='('
-        For i = 1 To iMultiplier : oTextCursor.gotoPreviousSentence(bExpand) : Next i
-    ElseIf keyChar = 125 Then ' 125='}'
-        For i = 1 To iMultiplier : oTextCursor.gotoNextParagraph(bExpand) : Next i
-    ElseIf keyChar = 123 Then ' 123='{'
-        For i = 1 To iMultiplier : oTextCursor.gotoPreviousParagraph(bExpand) : Next i
-
     Else
-        bSetCursor = False
-        bMatched = False
+        Select Case keyChar
+            Case 108 ' l
+                For i = 1 To iMultiplier : oTextCursor.goRight(1, bExpand) : Next i
+
+            Case 104 ' h
+                For i = 1 To iMultiplier : oTextCursor.goLeft(1, bExpand) : Next i
+
+            Case 107 ' k
+                If MODE = "VISUAL_LINE" Then
+                    For i = 1 To iMultiplier
+                        Dim lastSelected
+                        If getCursor().getPosition().Y() <= VISUAL_BASE.Y() Then
+                            lastSelected = getCursor().getPosition().Y()
+                            If VISUAL_BASE.Y() = getCursor().getPosition().Y() Then
+                                getCursor().gotoEndOfLine(False)
+                                If getCursor().getPosition().Y() = VISUAL_BASE.Y() Then
+                                    getCursor().goRight(1, False)
+                                End If
+                            End If
+                            Do Until getCursor().getPosition().Y() < lastSelected
+                                If Not getCursor().goUp(1, bExpand) Then Exit Do
+                            Loop
+                            getCursor().gotoStartOfLine(bExpand)
+                        ElseIf getCursor().getPosition().Y() > VISUAL_BASE.Y() Then
+                            getCursor().goUp(1, bExpand)
+                            lastSelected = getCursor().getPosition().Y()
+                            getCursor().goUp(1, bExpand)
+                            If getCursor().getPosition().Y() = VISUAL_BASE.Y() Then
+                                formatVisualBase()
+                            Else
+                                getCursor().gotoEndOfLine(bExpand)
+                                If getCursor().getPosition().Y() < lastSelected Then
+                                    getCursor().goRight(1, bExpand)
+                                End If
+                            End If
+                        End If
+                    Next i
+                    bSetCursor = False
+                Else
+                    For i = 1 To iMultiplier : getCursor().goUp(1, bExpand) : Next i
+                    bSetCursor = False
+                End If
+
+            Case 106 ' j
+                If MODE = "VISUAL_LINE" Then
+                    For i = 1 To iMultiplier
+                        If getCursor().getPosition().Y() >= VISUAL_BASE.Y() Then
+                            If VISUAL_BASE.Y() = getCursor().getPosition().Y() Then
+                                getCursor().gotoStartOfLine(False)
+                                getCursor().gotoEndOfLine(bExpand)
+                                If getCursor().getPosition().Y() = VISUAL_BASE.Y() Then
+                                    getCursor().goRight(1, bExpand)
+                                End If
+                            End If
+                            If getCursor().goDown(1, bExpand) Then
+                                getCursor().gotoStartOfLine(bExpand)
+                            Else
+                                getCursor().gotoEndOfLine(bExpand)
+                            End If
+                        ElseIf getCursor().getPosition().Y() < VISUAL_BASE.Y() Then
+                            getCursor().goDown(1, bExpand)
+                            getCursor().gotoStartOfLine(bExpand)
+                        End If
+                    Next i
+                    bSetCursor = False
+                Else
+                    For i = 1 To iMultiplier : getCursor().goDown(1, bExpand) : Next i
+                    bSetCursor = False
+                End If
+
+            Case 48 ' 0
+                getCursor().gotoStartOfLine(bExpand)
+                bSetCursor = False
+
+            Case 94 ' ^
+                ' --- Move cursor to the first non‑whitespace character on the current line ---
+                Dim originalLineY
+                originalLineY = getCursor().getPosition().Y()
+
+                ' Temporarily select the entire line to extract its text.
+                getCursor().gotoEndOfLine(False)
+                If getCursor().getPosition().Y() > originalLineY Then
+                    ' If we landed on the next line (line was exactly one character long), move back.
+                    getCursor().goLeft(1, False)
+                End If
+                getCursor().gotoStartOfLine(True)
+                Dim lineText As String
+                lineText = getCursor().String
+
+                ' Restore the original cursor (and any existing selection) before moving.
+                getCursor().gotoRange(oTextCursor, False)
+                getCursor().gotoStartOfLine(bExpand) ' Start from column 0
+
+                ' Find the index (1‑based) of the first character that is not a space or tab.
+                Dim firstNonBlankPos As Integer
+                firstNonBlankPos = 1
+                Do While firstNonBlankPos <= Len(lineText)
+                    Dim ch As String
+                    ch = Mid(lineText, firstNonBlankPos, 1)
+                    If ch <> " " And ch <> Chr(9) Then ' space or tab
+                        Exit Do
+                    End If
+                    firstNonBlankPos = firstNonBlankPos + 1
+                Loop
+
+                ' If the line is empty or all whitespace, stay at column 0.
+                If firstNonBlankPos > Len(lineText) Then
+                    firstNonBlankPos = 1
+                End If
+
+                ' Move right to the first non‑blank character.
+                getCursor().goRight(firstNonBlankPos - 1, bExpand)
+
+                bSetCursor = False ' We already moved the view cursor directly
+
+            Case 36 ' $
+                Dim oldPos, newPos
+                oldPos = getCursor().getPosition()
+                getCursor().gotoEndOfLine(bExpand)
+                newPos = getCursor().getPosition()
+
+                ' If the result is at the start of the line, then it must have
+                ' jumped down a line; goLeft to return to the previous line.
+                '   Except for: Empty lines (check for oldPos = newPos)
+                If getCursor().isAtStartOfLine() And oldPos.Y() <> newPos.Y() Then
+                    getCursor().goLeft(1, bExpand)
+                End If
+
+                bSetCursor = False
+
+            Case 119, 87 ' w, W
+                For i = 1 To iMultiplier : oTextCursor.gotoNextWord(bExpand) : Next i
+
+            Case 98, 66 ' b, B
+                For i = 1 To iMultiplier
+                    If Not MoveWordBackward(oTextCursor, bExpand) Then
+                        Exit For
+                    End If
+                Next i
+                bSetCursor = True
+
+            Case 103 ' g
+                If iRawMultiplier > 0 Then
+                    Dim targetPage As Integer
+                    Dim itotalPages As Integer
+                    targetPage = iMultiplier
+                    itotalPages = getPageCount()
+                    If targetPage > itotalPages Then targetPage = itotalPages
+                    getCursor().jumpToPage(targetPage, bExpand)
+                    oTextCursor.gotoRange(getCursor().getStart(), bExpand)
+                ElseIf getSpecial() = "g" Then
+                    ' Handle gg with visual modes
+                    If MODE = "VISUAL" Then
+                        Dim oldPosG
+                        oldPosG = getCursor().getPosition()
+                        getCursor().gotoRange(getCursor().getStart(), True)
+                        If Not samePos(getCursor().getPosition(), oldPosG) Then
+                            getCursor().gotoRange(getCursor().getEnd(), False)
+                        End If
+                    ElseIf MODE = "VISUAL_LINE" Then
+                        Do Until getCursor().getPosition().Y() <= VISUAL_BASE.Y()
+                            getCursor().goUp(1, False)
+                        Loop
+                        If getCursor().getPosition().Y() = VISUAL_BASE.Y() Then
+                            formatVisualBase()
+                        End If
+                    End If
+                    Dim bExpandLocal
+                    bExpandLocal = (MODE = "VISUAL" Or MODE = "VISUAL_LINE")
+                    getCursor().gotoStart(bExpandLocal)
+                    bSetCursor = False
+                    resetSpecial(True)
+                Else
+                    ' Set special 'g' and wait for the next key
+                    setSpecial("g")
+                    bMatched = True
+                    bSetCursor = False
+                End If
+
+            Case 71 ' G
+                oTextCursor.gotoEnd(bExpand)
+
+            Case 101 ' e
+                For i = 1 To iMultiplier
+                    oTextCursor.goRight(1, bExpand)
+                    oTextCursor.gotoEndOfWord(bExpand)
+                Next i
+
+            Case 41 ' )
+                For i = 1 To iMultiplier : oTextCursor.gotoNextSentence(bExpand) : Next i
+
+            Case 40 ' (
+                For i = 1 To iMultiplier : oTextCursor.gotoPreviousSentence(bExpand) : Next i
+
+            Case 125 ' }
+                For i = 1 To iMultiplier : oTextCursor.gotoNextParagraph(bExpand) : Next i
+
+            Case 123 ' {
+                For i = 1 To iMultiplier : oTextCursor.gotoPreviousParagraph(bExpand) : Next i
+
+            Case Else
+                bSetCursor = False
+                bMatched = False
+        End Select
     End If
 
     ' If oTextCursor was moved, set global cursor to its position
