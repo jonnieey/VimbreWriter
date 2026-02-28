@@ -43,6 +43,9 @@ global PREV_MODE as String
 global SPECIAL_MODE as String
 global SPECIAL_COUNT as integer
 global MOVEMENT_MODIFIER as String
+global REG_PENDING as boolean
+global REG_NAME as String
+global REGISTER_CONTENT(255) as String
 
 &apos; -----------
 &apos; Main entry point (toggle plugin)
@@ -137,6 +140,9 @@ Function KeyHandler_KeyPressed(oEvent) as boolean
     &apos; --------------------------
     &apos; Process global shortcuts, exit if matched (like ESC)
     If ProcessGlobalKey(oEvent) Then
+        &apos; Pass
+
+    ElseIf ProcessRegisterKey(oEvent) Then
         &apos; Pass
 
     ElseIf (MODE = &quot;NORMAL&quot; Or MODE = &quot;VISUAL&quot; Or MODE = &quot;VISUAL_LINE&quot;) And oEvent.KeyChar = 58 And getSpecial() = &quot;&quot; And getMovementModifier() = &quot;&quot; Then
@@ -254,11 +260,28 @@ Function ProcessGlobalKey(oEvent)
         End If
 
         resetSpecial(True)
+        REG_PENDING = False
+        REG_NAME = &quot;&quot;
         gotoMode(&quot;NORMAL&quot;)
     Else
         bMatched = False
     End If
     ProcessGlobalKey = bMatched
+End Function
+
+Function ProcessRegisterKey(oEvent)
+    If REG_PENDING Then
+        REG_NAME = Chr(oEvent.KeyChar)
+        REG_PENDING = False
+        ProcessRegisterKey = True
+        setStatus(getMultiplier())
+    ElseIf oEvent.KeyChar = 34 And (MODE = &quot;NORMAL&quot; Or MODE = &quot;VISUAL&quot; Or MODE = &quot;VISUAL_LINE&quot;) Then &apos; &quot;
+        REG_PENDING = True
+        ProcessRegisterKey = True
+        setStatus(getMultiplier())
+    Else
+        ProcessRegisterKey = False
+    End If
 End Function
 
 Function ProcessModeKey(oEvent)
@@ -1219,16 +1242,37 @@ End Sub
 
 
 
+
 &apos; Yanks selection to system clipboard.
 &apos; If bDelete is true, will delete selection.
 Sub yankSelection(bDelete)
-    Dim dispatcher As Object
-    dispatcher = createUnoService(&quot;com.sun.star.frame.DispatchHelper&quot;)
-    dispatcher.executeDispatch(ThisComponent.CurrentController.Frame, &quot;.uno:Copy&quot;, &quot;&quot;, 0, Array())
+    Dim sText As String
+    Dim bUseSystemClipboard As Boolean
+    bUseSystemClipboard = True
+
+    If REG_NAME &lt;&gt; &quot;&quot; And REG_NAME &lt;&gt; &quot;*&quot; And REG_NAME &lt;&gt; &quot;+&quot; Then
+        &apos; Use internal register
+        &apos; Get selected text
+        Dim oSelection
+        oSelection = ThisComponent.CurrentController.getSelection()
+        If oSelection.getCount() &gt; 0 Then
+            sText = oSelection.getByIndex(0).getString()
+            REGISTER_CONTENT(Asc(REG_NAME)) = sText
+            bUseSystemClipboard = False
+        End If
+    End If
+
+    If bUseSystemClipboard Then
+        Dim dispatcher As Object
+        dispatcher = createUnoService(&quot;com.sun.star.frame.DispatchHelper&quot;)
+        dispatcher.executeDispatch(ThisComponent.CurrentController.Frame, &quot;.uno:Copy&quot;, &quot;&quot;, 0, Array())
+    End If
 
     If bDelete Then
         getTextCursor().setString(&quot;&quot;)
     End If
+
+    REG_NAME = &quot;&quot; &apos; Reset register
 End Sub
 
 
@@ -1250,18 +1294,35 @@ Sub pasteSelection(bUnformatted As Boolean, bAfter As Boolean, nMultiplier As In
         End If
     End If
 
+    Dim bUseSystemClipboard As Boolean
+    bUseSystemClipboard = True
+    Dim sContent As String
+
+    If REG_NAME &lt;&gt; &quot;&quot; And REG_NAME &lt;&gt; &quot;*&quot; And REG_NAME &lt;&gt; &quot;+&quot; Then
+        sContent = REGISTER_CONTENT(Asc(REG_NAME))
+        bUseSystemClipboard = False
+    End If
+
     &apos; --- Perform paste nMultiplier times ---
-    Set oDispatcher = createUnoService(&quot;com.sun.star.frame.DispatchHelper&quot;)
     Dim i As Integer
     For i = 1 To nMultiplier
-        If bUnformatted Then
-            oDispatcher.executeDispatch(ThisComponent.CurrentController.Frame, &quot;.uno:PasteUnformatted&quot;, &quot;&quot;, 0, Array())
-            getCursor().goRight(1, False)
+        If bUseSystemClipboard Then
+            Set oDispatcher = createUnoService(&quot;com.sun.star.frame.DispatchHelper&quot;)
+            If bUnformatted Then
+                oDispatcher.executeDispatch(ThisComponent.CurrentController.Frame, &quot;.uno:PasteUnformatted&quot;, &quot;&quot;, 0, Array())
+                getCursor().goRight(1, False)
+            Else
+                oDispatcher.executeDispatch(ThisComponent.CurrentController.Frame, &quot;.uno:Paste&quot;, &quot;&quot;, 0, Array())
+                getCursor().goRight(1, False)
+            End If
         Else
-            oDispatcher.executeDispatch(ThisComponent.CurrentController.Frame, &quot;.uno:Paste&quot;, &quot;&quot;, 0, Array())
-            getCursor().goRight(1, False)
+            getCursor().setString(sContent)
+            &apos; After insert, we need to collapse to end to be ready for next paste or move
+            getCursor().collapseToEnd()
         End If
     Next i
+
+    REG_NAME = &quot;&quot; &apos; Reset register
 
     &apos; --- Position cursor on the last pasted character ---
     If MODE = &quot;NORMAL&quot; Then
@@ -1328,6 +1389,15 @@ Sub setStatus(statusText)
     nCurrentPage = getCursor().getPage()
     nTotalPages = getPageCount()
 
+    Dim sReg as String
+    If REG_PENDING Then
+        sReg = PadRight(&quot;reg: pending&quot;, 13)
+    ElseIf REG_NAME &lt;&gt; &quot;&quot; Then
+        sReg = PadRight(&quot;reg: &quot; &amp; REG_NAME, 13)
+    Else
+        sReg = PadRight(&quot;reg: &quot;, 13)
+    End If
+
     sMode = PadRight(MODE, 12)
     sStatusText = PadRight(statusText, 5)
     sSpec = PadRight(&quot;special: &quot; &amp; getSpecial(), 11)
@@ -1337,7 +1407,7 @@ Sub setStatus(statusText)
     sWords = PadRight(&quot;Words: &quot; &amp; getWordCount(), 13)
     sFileName = &quot;File: &quot; &amp; getCurrentFileName()
 
-    sFinalStatus = sMode &amp; &quot; | &quot; &amp; sStatusText &amp; &quot; | &quot; &amp; sSpec &amp; &quot;  | &quot; &amp; sMod &amp; &quot; | &quot; &amp; sPage &amp; &quot; | &quot; &amp; sParagraphs &amp; &quot; | &quot; &amp; sWords &amp; &quot; | &quot; &amp; sFileName
+    sFinalStatus = sMode &amp; &quot; | &quot; &amp; sStatusText &amp; &quot; | &quot; &amp; sSpec &amp; &quot; | &quot; &amp; sReg &amp; &quot; | &quot; &amp; sMod &amp; &quot; | &quot; &amp; sPage &amp; &quot; | &quot; &amp; sParagraphs &amp; &quot; | &quot; &amp; sWords &amp; &quot; | &quot; &amp; sFileName
 
     setRawStatus(sFinalStatus)
 End Sub
