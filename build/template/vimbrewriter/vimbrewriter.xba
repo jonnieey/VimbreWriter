@@ -859,14 +859,7 @@ Function ProcessMovementKey(keyChar, iMultiplier, iRawMultiplier, Optional bExpa
                 bSetCursor = True
 
             Case 103 &apos; g
-                If iRawMultiplier &gt; 0 Then
-                    Dim targetPage, itotalPages As Integer
-                    targetPage = iMultiplier
-                    itotalPages = getPageCount()
-                    If targetPage &gt; itotalPages Then targetPage = itotalPages
-                    getCursor().jumpToPage(targetPage, bExpand)
-                    oTextCursor.gotoRange(getCursor().getStart(), bExpand)
-                ElseIf getSpecial() = &quot;g&quot; Then
+                If getSpecial() = &quot;g&quot; Then
                     &apos; Handle gg with visual modes
                     If MODE = &quot;VISUAL&quot; Then
                         Dim oldPosG
@@ -885,7 +878,18 @@ Function ProcessMovementKey(keyChar, iMultiplier, iRawMultiplier, Optional bExpa
                     End If
                     Dim bExpandLocal
                     bExpandLocal = (MODE = &quot;VISUAL&quot; Or MODE = &quot;VISUAL_LINE&quot;)
-                    getCursor().gotoStart(bExpandLocal)
+
+                    If iRawMultiplier &gt; 0 Then
+                        Dim targetPage, itotalPages As Integer
+                        targetPage = iMultiplier
+                        itotalPages = getPageCount()
+                        If targetPage &gt; itotalPages Then targetPage = itotalPages
+                        getCursor().jumpToPage(targetPage, bExpand)
+                        oTextCursor.gotoRange(getCursor().getStart(), bExpandLocal)
+                    Else
+                        getCursor().gotoStart(bExpandLocal)
+                    End If
+
                     bSetCursor = False
                     resetSpecial(True)
                 Else
@@ -1239,6 +1243,7 @@ Sub Undo(bUndo)
     ErrorHandler:
     Resume Next
 End Sub
+
 
 
 
