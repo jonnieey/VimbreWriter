@@ -900,11 +900,21 @@ Function ProcessMovementKey(keyChar, iMultiplier, iRawMultiplier, Optional bExpa
                 oTextCursor.gotoEnd(bExpand)
 
             Case 101 ' e
-                For i = 1 To iMultiplier
-                    oTextCursor.goRight(1, bExpand)
-                    oTextCursor.gotoEndOfWord(bExpand)
-                Next i
-
+                If getSpecial() = "g" Then
+                    For i = 1 To iMultiplier
+                        If Not oTextCursor.isStartOfWord() Then
+                            MoveWordBackward(oTextCursor, bExpand)
+                        End If
+                        MoveWordBackward(oTextCursor, bExpand)
+                        oTextCursor.gotoEndOfWord(bExpand)
+                    Next i
+                    resetSpecial(True)
+                Else
+                    For i = 1 To iMultiplier
+                        oTextCursor.goRight(1, bExpand)
+                        oTextCursor.gotoEndOfWord(bExpand)
+                    Next i
+                End If
             Case 41 ' )
                 For i = 1 To iMultiplier : oTextCursor.gotoNextSentence(bExpand) : Next i
 
