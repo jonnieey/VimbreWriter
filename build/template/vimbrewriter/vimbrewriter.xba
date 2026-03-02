@@ -275,7 +275,7 @@ Function ProcessRegisterKey(oEvent)
         REG_PENDING = False
         ProcessRegisterKey = True
         setStatus(getMultiplier())
-    ElseIf oEvent.KeyChar = 34 And (MODE = &quot;NORMAL&quot; Or MODE = &quot;VISUAL&quot; Or MODE = &quot;VISUAL_LINE&quot;) Then &apos; &quot;
+    ElseIf oEvent.KeyChar = 34 And (MODE = &quot;NORMAL&quot; Or MODE = &quot;VISUAL&quot; Or MODE = &quot;VISUAL_LINE&quot;) And getMovementModifier() = &quot;&quot; Then &apos; &quot;
         REG_PENDING = True
         ProcessRegisterKey = True
         setStatus(getMultiplier())
@@ -1275,6 +1275,7 @@ Sub Undo(bUndo)
     ErrorHandler:
     Resume Next
 End Sub
+
 
 
 &apos; Yanks selection to system clipboard.
