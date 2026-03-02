@@ -304,25 +304,8 @@ Function ProcessModeKey(oEvent)
             If key = 73 Then ProcessMovementKey(94, 1, 0)
             If key = 65 Then ProcessMovementKey(36, 1, 0)
 
-            If key = 111 Then ' 'o': open line below
-                ProcessMovementKey(36, 1, 0) ' '$'
-                ProcessMovementKey(108, 1, 0) ' 'l'
-                getCursor().setString(Chr(13))
-                If Not getCursor().isAtStartOfLine() Then
-                    getCursor().setString(Chr(13) & Chr(13))
-                    ProcessMovementKey(108, 1, 0)
-                End If
-            End If
-
-            If key = 79 Then ' 'O': open line above
-                ProcessMovementKey(94, 1, 0) ' '^'
-                getCursor().setString(Chr(13))
-                If Not getCursor().isAtStartOfLine() Then
-                    ProcessMovementKey(104, 1, 0) ' 'h'
-                    getCursor().setString(Chr(13))
-                    ProcessMovementKey(108, 1, 0) ' 'l'
-                End If
-            End If
+            If key = 111 Then NormalMode_o()
+            If key = 79 Then NormalMode_cap_o()
 
             gotoMode("INSERT")
         Case 118 : ' 118='v'
@@ -335,6 +318,26 @@ Function ProcessModeKey(oEvent)
     End Select
     ProcessModeKey = bMatched
 End Function
+
+Sub NormalMode_o()
+    ProcessMovementKey(36, 1, 0) ' '$'
+    ProcessMovementKey(108, 1, 0) ' 'l'
+    getCursor().setString(Chr(13))
+    If Not getCursor().isAtStartOfLine() Then
+        getCursor().setString(Chr(13) & Chr(13))
+        ProcessMovementKey(108, 1, 0)
+    End If
+End Sub
+
+Sub NormalMode_cap_o()
+    ProcessMovementKey(48, 1, 0) ' '0'
+    getCursor().setString(Chr(13))
+    If Not getCursor().isAtStartOfLine() Then
+        ProcessMovementKey(104, 1, 0) ' 'h'
+        getCursor().setString(Chr(13))
+        ProcessMovementKey(108, 1, 0) ' 'l'
+    End If
+End Sub
 
 Sub HandleCommand(keyChar As Integer)
     Dim oTextCursor, oViewCursor, oStartPos, dispatcher As Object
@@ -412,12 +415,31 @@ Function ProcessNormalKey(keyChar, modifiers)
     ' Set dispatcher = createUnoService("com.sun.star.frame.DispatchHelper")
 
     bIsControl = (modifiers = 2) Or (modifiers = 8)
+    Dim bIsCtrlAlt As Boolean
+    bIsCtrlAlt = (modifiers = 6) Or (modifiers = 12) ' Ctrl+Alt can be 2+4=6 or 8+4=12
 
     bIsVisual = (MODE = "VISUAL" Or MODE = "VISUAL_LINE")
 
     iMultiplier = getMultiplier()
     iRawMultiplier = getRawMultiplier()
 
+    ' Handle Enter/Return (and Ctrl+m) to create a new line, like 'o' but staying in Normal mode
+    ' 13 = carriage return (Enter). For Ctrl+m, keyChar=109 and bIsControl=True.
+    If keyChar = 13 Or (keyChar = 109 And bIsControl) Then
+        For i = 1 To iMultiplier
+            NormalMode_o()
+        Next i
+        ProcessNormalKey = True
+        Exit Function
+
+        ' Handle Ctrl+Alt+m to create a new line above, like 'O'
+    ElseIf keyChar = 109 And bIsCtrlAlt Then
+        For i = 1 To iMultiplier
+            NormalMode_cap_o()
+        Next i
+        ProcessNormalKey = True
+        Exit Function
+    End If
     ' ----------------------
     ' 1. Check Movement Key
     ' ----------------------
@@ -1250,8 +1272,6 @@ Sub Undo(bUndo)
     ErrorHandler:
     Resume Next
 End Sub
-
-
 
 
 ' Yanks selection to system clipboard.
