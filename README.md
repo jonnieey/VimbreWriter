@@ -6,12 +6,16 @@ VimbreWriter is an extension for LibreOffice and OpenOffice that brings key bind
 
 ## Features
 
-- **Modes**: Normal, Insert, Visual, Visual Line.
-- **Movement**: `h`, `j`, `k`, `l`, `w`, `b`, `e`, `$`, `^`, `G`, `gg`, `{`, `}`, `C-d`, `C-u`
-- **Editing**: `d`, `c`, `y`, `p`, `x`, `r`, `o`, `O`.
-- **Compound Commands**: `dd`, `cc`, `dw`, `cw`
-- **Search**: `f,F`, `t,T` (inline), `/` (find), `\` (find & replace dialog).
-- **Undo/Redo**: `u`, `C-r`.
+- **Modes**: Normal, Insert, Visual (character/line), Command.
+- **Movements**: `hjkl`, `w`/`b`/`e`, `^`/`$`, `gg`/`G`, `}`/`{`, `)`/`(`.
+- **Editing**: `d`/`c`/`y` + motion, `dd`/`cc`/`yy`, `p`/`P`, `u`/`Ctrl+r`.
+- **Search**: `/` (find bar), `\` (dialog), `f`/`F`/`t`/`T`.
+- **Registers**: `"` + letter to store/recall text.
+- **Text objects**: `i`/`a` + `( { [ < ' "` (experimental).
+- **Command mode**: `:` + letter for formatting (bold, italic, align, etc.).
+- **Status line**: Shows mode, multiplier, register, page, word count.
+
+---
 
 ## Installation
 
@@ -21,15 +25,37 @@ Download the latest `.oxt` extension file and open it with LibreOffice/OpenOffic
 ### From Source
 You can build and install the extension yourself using the provided Makefile.
 
+**VIMBREWRITER_VERSION="0.0.0" is used for testing, do not use it**
+
 ```bash
+# Makes and install directly (requires unopkg)
+VIMBREWRITER_VERSION="0.0.1" make install
+
 # Build the extension (creates .oxt in dist/)
 VIMBREWRITER_VERSION="0.0.1" make extension
-
-# Install directly (requires unopkg)
-VIMBREWRITER_VERSION="0.0.1" make install
 ```
 
 To enable/disable VimbreWriter, go to **Tools -> Add-Ons -> VimbreWriter**.
+
+### Bindings (Compact)
+
+| Key | Action | Key | Action |
+| :--- | :--- | :--- | :--- |
+| `h` `j` `k` `l` | Left, Down, Up, Right | `i` `I` `a` `A` | Insert (before/line start/after/line end) |
+| `w` `W` `b` `B` | Next/Prev Word | `o` `O` | Open line below/above |
+| `e` | End of word | `x` | Delete char |
+| `^` `$` | Start/End of line | `r` | Replace char |
+| `gg` `G` | Top/Bottom of doc | `u` `C-r` | Undo / Redo |
+| `f` `t` | Find char inline | `v` `V` | Visual / Visual Line Mode |
+| `{` `}` | Prev/Next Paragraph | `/` | Find |
+| `(` `)` | Prev/Next Sentence | `\` | Find & Replace Dialog |
+| `d` `c` `y` | Delete, Change, Yank | `p` `P` | Paste after/before |
+
+**Note**: Operators like `d`, `c`, `y` work with motions (e.g., `dw`, `cw`).
+
+## Full Documentation
+
+For a complete key reference, modes, text objects, registers, and development notes, see **[README-COMP.md](README-COMP.md)**.
 
 ## Developer Guidelines
 
@@ -50,24 +76,13 @@ make testing
 **Warning**: `make testing` will kill `soffice.bin`. Save your work in other documents before running.
 
 ### Formatting
-- run make lint
+- run `make lint`
 - Keep indentation consistent (spaces/tabs as per existing file).
 
-### Bindings (Compact)
-
-| Key | Action | Key | Action |
-| :--- | :--- | :--- | :--- |
-| `h` `j` `k` `l` | Left, Down, Up, Right | `i` `I` `a` `A` | Insert (before/line start/after/line end) |
-| `w` `W` `b` `B` | Next/Prev Word | `o` `O` | Open line below/above |
-| `e` | End of word | `x` | Delete char |
-| `^` `$` | Start/End of line | `r` | Replace char |
-| `gg` `G` | Top/Bottom of doc | `u` `C-r` | Undo / Redo |
-| `f` `t` | Find char inline | `v` `V` | Visual / Visual Line Mode |
-| `{` `}` | Prev/Next Paragraph | `/` | Find |
-| `(` `)` | Prev/Next Sentence | `\` | Find & Replace Dialog |
-| `d` `c` `y` | Delete, Change, Yank | `p` `P` | Paste after/before |
-
-**Note**: Operators like `d`, `c`, `y` work with motions (e.g., `dw`, `cw`).
+#### Example
+```
+VIMBREWRITER_VERSION="1.2.3" make lint ; make install
+```
 
 ### Known differences/issues
 - tag block deletion doesn't work, but I don't believe it's necessary,
@@ -90,6 +105,5 @@ make testing
         - It is best to create an issue first, or explain what the code is doing
     - profit   
 
-
-### License
-vimbrewriter is released under the MIT License.
+## License
+MIT © 2014 Sean Yeh, maintained by contributors.
