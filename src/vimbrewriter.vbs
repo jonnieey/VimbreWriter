@@ -1164,30 +1164,10 @@ Function GetSymbol(keyChar As Integer, modifier As String) As Boolean
             startChar = ","
             endChar = ","
         Case 39 ' ' (single quote)
-            ' Try smart quotes first
-            startChar = Chr(8216) ' ‘
-            endChar = Chr(8217) ' ’
-            bMatched = FindMatchingPair(startChar, endChar, modifier)
-            If Not bMatched Then
-                ' Fallback to straight quotes
-                startChar = "'"
-                endChar = "'"
-                bMatched = FindMatchingPair(startChar, endChar, modifier)
-            End If
-            GetSymbol = bMatched
+            GetSymbol = FindNearestMatchingQuote("'", modifier)
             Exit Function
         Case 34 ' " (double quote)
-            ' Try smart quotes first
-            startChar = Chr(8220) ' “
-            endChar = Chr(8221) ' ”
-            bMatched = FindMatchingPair(startChar, endChar, modifier)
-            If Not bMatched Then
-                ' Fallback to straight quotes
-                startChar = Chr(34)
-                endChar = Chr(34)
-                bMatched = FindMatchingPair(startChar, endChar, modifier)
-            End If
-            GetSymbol = bMatched
+            GetSymbol = FindNearestMatchingQuote(Chr(34), modifier)
             Exit Function
         Case Else
             GetSymbol = False
@@ -1195,6 +1175,71 @@ Function GetSymbol(keyChar As Integer, modifier As String) As Boolean
     End Select
 
     GetSymbol = FindMatchingPair(startChar, endChar, modifier)
+End Function
+
+Function FindNearestMatchingQuote(quoteChar As String, modifier As String) As Boolean
+    Dim oDoc, oCursor, oTempCursor As Object
+    Dim i As Integer
+    Dim straightQuotePos, smartQuotePos As Integer
+    Dim startChar, endChar As String
+
+    oDoc = ThisComponent
+    Set oCursor = oDoc.Text.createTextCursorByRange(getCursor().getStart())
+
+    ' Search backwards for the nearest quote
+    straightQuotePos = - 1
+    smartQuotePos = - 1
+
+    For i = 1 To 2000
+        If Not oCursor.goLeft(1, False) Then Exit For
+        Set oTempCursor = oDoc.Text.createTextCursorByRange(oCursor.getStart())
+        oTempCursor.goLeft(1, True)
+        Dim currentChar As String
+        currentChar = oTempCursor.getString()
+
+        If quoteChar = "'" Then
+            If currentChar = "'" Then
+                straightQuotePos = i
+                Exit For
+            ElseIf currentChar = Chr(8216) Then ' ‘
+                smartQuotePos = i
+                Exit For
+            End If
+        ElseIf quoteChar = Chr(34) Then
+            If currentChar = Chr(34) Then
+                straightQuotePos = i
+                Exit For
+            ElseIf currentChar = Chr(8220) Then ' “
+                smartQuotePos = i
+                Exit For
+            End If
+        End If
+    Next i
+
+    If straightQuotePos = - 1 And smartQuotePos = - 1 Then
+        FindNearestMatchingQuote = False
+        Exit Function
+    End If
+
+    If straightQuotePos <> - 1 And (straightQuotePos < smartQuotePos Or smartQuotePos = - 1) Then
+        If quoteChar = "'" Then
+            startChar = "'"
+            endChar = "'"
+        Else
+            startChar = Chr(34)
+            endChar = Chr(34)
+        End If
+    Else
+        If quoteChar = "'" Then
+            startChar = Chr(8216) ' ‘
+            endChar = Chr(8217) ' ’
+        Else
+            startChar = Chr(8220) ' “
+            endChar = Chr(8221) ' ”
+        End If
+    End If
+
+    FindNearestMatchingQuote = FindMatchingPair(startChar, endChar, modifier)
 End Function
 
 Function FindMatchingPair(startChar As String, endChar As String, modifier As String) As Boolean
