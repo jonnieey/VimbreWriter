@@ -272,7 +272,7 @@ Function ProcessRegisterKey(oEvent)
         REG_PENDING = False
         ProcessRegisterKey = True
         setStatus(getMultiplier())
-    ElseIf oEvent.KeyChar = 34 And (MODE = "NORMAL" Or MODE = "VISUAL" Or MODE = "VISUAL_LINE") And getMovementModifier() = "" Then ' "
+    ElseIf oEvent.KeyChar = 34 And (MODE = "NORMAL" Or MODE = "VISUAL" Or MODE = "VISUAL_LINE") And getMovementModifier() = "" And getSpecial() = "" Then ' "
         REG_PENDING = True
         ProcessRegisterKey = True
         setStatus(getMultiplier())
@@ -1484,7 +1484,7 @@ Sub setStatus(statusText)
     sWords = PadRight("Words: " & getWordCount(), 13)
     sFileName = "File: " & getCurrentFileName()
 
-    sFinalStatus = sMode & " | " & sStatusText & " | " & sSpec & " | " & sReg & " | " & sMod & " | " & sPage & " | " & sParagraphs & " | " & sWords & " | " & sFileName
+    sFinalStatus = sMode & " | " & sStatusText & " | " & sSpec & " | " & sMod & " | " & sReg & " | " & sPage & " | " & sParagraphs & " | " & sWords & " | " & sFileName
 
     setRawStatus(sFinalStatus)
 End Sub

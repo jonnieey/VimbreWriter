@@ -275,7 +275,7 @@ Function ProcessRegisterKey(oEvent)
         REG_PENDING = False
         ProcessRegisterKey = True
         setStatus(getMultiplier())
-    ElseIf oEvent.KeyChar = 34 And (MODE = &quot;NORMAL&quot; Or MODE = &quot;VISUAL&quot; Or MODE = &quot;VISUAL_LINE&quot;) And getMovementModifier() = &quot;&quot; Then &apos; &quot;
+    ElseIf oEvent.KeyChar = 34 And (MODE = &quot;NORMAL&quot; Or MODE = &quot;VISUAL&quot; Or MODE = &quot;VISUAL_LINE&quot;) And getMovementModifier() = &quot;&quot; And getSpecial() = &quot;&quot; Then &apos; &quot;
         REG_PENDING = True
         ProcessRegisterKey = True
         setStatus(getMultiplier())
@@ -443,8 +443,6 @@ Function ProcessNormalKey(keyChar, modifiers)
         ProcessNormalKey = True
         Exit Function
     End If
-    &apos; ----------------------
-    &apos; 1. Check Movement Key
     &apos; ----------------------
     &apos; 1. Check Movement Key
     &apos; ----------------------
@@ -1490,7 +1488,7 @@ Sub setStatus(statusText)
     sWords = PadRight(&quot;Words: &quot; &amp; getWordCount(), 13)
     sFileName = &quot;File: &quot; &amp; getCurrentFileName()
 
-    sFinalStatus = sMode &amp; &quot; | &quot; &amp; sStatusText &amp; &quot; | &quot; &amp; sSpec &amp; &quot; | &quot; &amp; sReg &amp; &quot; | &quot; &amp; sMod &amp; &quot; | &quot; &amp; sPage &amp; &quot; | &quot; &amp; sParagraphs &amp; &quot; | &quot; &amp; sWords &amp; &quot; | &quot; &amp; sFileName
+    sFinalStatus = sMode &amp; &quot; | &quot; &amp; sStatusText &amp; &quot; | &quot; &amp; sSpec &amp; &quot; | &quot; &amp; sMod &amp; &quot; | &quot; &amp; sReg &amp; &quot; | &quot; &amp; sPage &amp; &quot; | &quot; &amp; sParagraphs &amp; &quot; | &quot; &amp; sWords &amp; &quot; | &quot; &amp; sFileName
 
     setRawStatus(sFinalStatus)
 End Sub
