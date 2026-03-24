@@ -426,6 +426,22 @@ Function ProcessNormalKey(keyChar, modifiers)
     iMultiplier = getMultiplier()
     iRawMultiplier = getRawMultiplier()
 
+    If MODE = &quot;VISUAL&quot; And getSpecial() = &quot;I&quot; And keyChar &lt;&gt; 0 Then
+        InsertBetweenChars(Chr(keyChar))
+        resetSpecial(True)
+        gotoMode(&quot;NORMAL&quot;)
+        ProcessNormalKey = True
+        Exit Function
+    End If
+
+    &apos; If we are in Visual mode and press &apos;I&apos;, start the insert‑between command
+    If MODE = &quot;VISUAL&quot; And getSpecial() = &quot;&quot; And getMovementModifier() = &quot;&quot; And keyChar = 73 Then &apos; 73 = &apos;I&apos;
+        setSpecial(&quot;I&quot;)
+        ProcessNormalKey = True
+        Exit Function
+    End If
+
+
     &apos; Handle Enter/Return (and Ctrl+m) to create a new line, like &apos;o&apos; but staying in Normal mode
     &apos; 13 = carriage return (Enter). For Ctrl+m, keyChar=109 and bIsControl=True.
     If keyChar = 13 Or (keyChar = 109 And bIsControl) Then
@@ -471,7 +487,6 @@ Function ProcessNormalKey(keyChar, modifiers)
         ProcessNormalKey = True
         Exit Function
     End If
-
 
     &apos; --------------------
     &apos; 2. Undo/Redo, USE DEFAULT z and y
@@ -1323,7 +1338,6 @@ End Sub
 
 
 
-
 &apos; Yanks selection to system clipboard.
 &apos; If bDelete is true, will delete selection.
 Sub yankSelection(bDelete)
@@ -1836,4 +1850,32 @@ Function getMultiplier()
         getMultiplier = MULTIPLIER
     End If
 End Function
+
+Sub InsertBetweenChars(charToInsert As String)
+    &apos; Insert the given character between each character of the current selection
+    Dim oSelection, oRange, sText, newText, i As Integer
+    Dim oVC As Object
+
+    oSelection = ThisComponent.CurrentController.getSelection()
+    If oSelection.getCount() = 0 Then Exit Sub
+
+    Set oRange = oSelection.getByIndex(0)
+    sText = oRange.getString()
+    If Len(sText) = 0 Then Exit Sub
+
+    &apos; Build new string: insert charToInsert between every character
+    newText = &quot;&quot;
+    For i = 1 To Len(sText) - 1
+        newText = newText &amp; Mid(sText, i, 1) &amp; charToInsert
+    Next i
+    newText = newText &amp; Mid(sText, Len(sText), 1)
+
+    &apos; Replace the selected range directly
+    oRange.setString(newText)
+
+    &apos; Move view cursor to the end of the inserted text
+    oVC = getCursor()
+    oVC.gotoRange(oRange.getStart(), False)
+    oVC.goRight(Len(newText), False)
+End Sub
 </script:module>

@@ -423,6 +423,22 @@ Function ProcessNormalKey(keyChar, modifiers)
     iMultiplier = getMultiplier()
     iRawMultiplier = getRawMultiplier()
 
+    If MODE = "VISUAL" And getSpecial() = "I" And keyChar <> 0 Then
+        InsertBetweenChars(Chr(keyChar))
+        resetSpecial(True)
+        gotoMode("NORMAL")
+        ProcessNormalKey = True
+        Exit Function
+    End If
+
+    ' If we are in Visual mode and press 'I', start the insert‑between command
+    If MODE = "VISUAL" And getSpecial() = "" And getMovementModifier() = "" And keyChar = 73 Then ' 73 = 'I'
+        setSpecial("I")
+        ProcessNormalKey = True
+        Exit Function
+    End If
+
+
     ' Handle Enter/Return (and Ctrl+m) to create a new line, like 'o' but staying in Normal mode
     ' 13 = carriage return (Enter). For Ctrl+m, keyChar=109 and bIsControl=True.
     If keyChar = 13 Or (keyChar = 109 And bIsControl) Then
@@ -468,7 +484,6 @@ Function ProcessNormalKey(keyChar, modifiers)
         ProcessNormalKey = True
         Exit Function
     End If
-
 
     ' --------------------
     ' 2. Undo/Redo, USE DEFAULT z and y
@@ -1832,3 +1847,31 @@ Function getMultiplier()
         getMultiplier = MULTIPLIER
     End If
 End Function
+
+Sub InsertBetweenChars(charToInsert As String)
+    ' Insert the given character between each character of the current selection
+    Dim oSelection, oRange, sText, newText, i As Integer
+    Dim oVC As Object
+
+    oSelection = ThisComponent.CurrentController.getSelection()
+    If oSelection.getCount() = 0 Then Exit Sub
+
+    Set oRange = oSelection.getByIndex(0)
+    sText = oRange.getString()
+    If Len(sText) = 0 Then Exit Sub
+
+    ' Build new string: insert charToInsert between every character
+    newText = ""
+    For i = 1 To Len(sText) - 1
+        newText = newText & Mid(sText, i, 1) & charToInsert
+    Next i
+    newText = newText & Mid(sText, Len(sText), 1)
+
+    ' Replace the selected range directly
+    oRange.setString(newText)
+
+    ' Move view cursor to the end of the inserted text
+    oVC = getCursor()
+    oVC.gotoRange(oRange.getStart(), False)
+    oVC.goRight(Len(newText), False)
+End Sub
