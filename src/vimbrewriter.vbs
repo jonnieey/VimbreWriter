@@ -1073,83 +1073,151 @@ Function ProcessStandardMovementKey(oEvent)
 End Function
 
 Function ProcessSearchKey(oTextCursor, searchType, keyChar, bExpand)
-    '-----------
-    ' Searching
-    ' keyChar here is a string (the literal character to find), not an ascii int.
-    ' It is passed in from ProcessMovementKey after converting with Chr().
-    '-----------
-    Dim bMatched, oSearchDesc, oFoundRange, bIsBackwards, oStartRange
+    ' searchType: "f", "t", "F", "T"
+    ' keyChar is the character to find (as a string)
+    ' bExpand: True if we are in Visual mode (expand selection)
+    '
+    ' Returns True if the character was found and cursor moved,
+    ' False otherwise.
+    ' For normal mode (bExpand=False), the text cursor is moved to the
+    ' appropriate position for standalone motion.
+    ' For operator+visual mode (bExpand=True), the text cursor's selection
+    ' is set to the range that the motion covers (from original start to the
+    ' appropriate end point). This range will be used by the operator.
+
+    Dim bMatched, bIsBackwards, bIsTill As Boolean
+    Dim oSearchDesc, oFoundRange, oStartRange, oSearchCursor, oTempCursor
+    Dim oOriginalStart As Object
+
     bMatched = True
     bIsBackwards = (searchType = "F" Or searchType = "T")
+    bIsTill = (searchType = "t" Or searchType = "T")
+
+    ' Save the original start of oTextCursor (the cursor before we move it)
+    Set oOriginalStart = oTextCursor.getStart()
+
+    ' Create a search cursor starting from the current position,
+    ' but offset by one to avoid finding the character at the cursor.
+    Set oSearchCursor = oTextCursor.getText().createTextCursorByRange(oOriginalStart)
 
     If Not bIsBackwards Then
-        ' VISUAL mode will goRight AFTER the selection
-        If MODE <> "VISUAL" Then
-            ' Start searching from next character
-            oTextCursor.goRight(1, bExpand)
+        ' Forward: start searching from the next character
+        If Not oSearchCursor.goRight(1, False) Then
+            ' End of document
+            ProcessSearchKey = False
+            Exit Function
         End If
-
-        oStartRange = oTextCursor.getEnd()
-        ' Go back one
-        oTextCursor.goLeft(1, bExpand)
+        Set oStartRange = oSearchCursor.getStart()
     Else
-        oStartRange = oTextCursor.getStart()
+        ' Backward: start searching from the previous character
+        If Not oSearchCursor.goLeft(1, False) Then
+            ' Beginning of document
+            ProcessSearchKey = False
+            Exit Function
+        End If
+        Set oStartRange = oSearchCursor.getStart()
     End If
 
+    ' Set up search descriptor
     oSearchDesc = thisComponent.createSearchDescriptor()
     oSearchDesc.setSearchString(keyChar)
     oSearchDesc.SearchCaseSensitive = True
     oSearchDesc.SearchBackwards = bIsBackwards
 
-    oFoundRange = thisComponent.findNext(oStartRange, oSearchDesc)
-
-    If Not IsNull(oFoundRange) Then
-        Dim oText, foundPos, curPos, bSearching
-        oText = oTextCursor.getText()
-        foundPos = oFoundRange.getStart()
-
-        ' Unfortunately, we must go go to this "found" position one character at
-        ' a time because I have yet to find a way to consistently move the
-        ' Start range of the text cursor and leave the End range intact.
-        If bIsBackwards Then
-            curPos = oTextCursor.getEnd()
-        Else
-            curPos = oTextCursor.getStart()
-        End If
-        Do Until oText.compareRegionStarts(foundPos, curPos) = 0
-            If bIsBackwards Then
-                bSearching = oTextCursor.goLeft(1, bExpand)
-                curPos = oTextCursor.getStart()
-            Else
-                bSearching = oTextCursor.goRight(1, bExpand)
-                curPos = oTextCursor.getEnd()
-            End If
-
-            ' Prevent infinite if unable to find, but shouldn't ever happen (?)
-            If Not bSearching Then
-                bMatched = False
-                Exit Do
-            End If
-        Loop
-
-        If searchType = "t" Then
-            oTextCursor.goLeft(1, bExpand)
-        ElseIf searchType = "T" Then
-            oTextCursor.goRight(1, bExpand)
-        End If
-
-    Else
-        bMatched = False
+    ' Perform search
+    Set oFoundRange = thisComponent.findNext(oStartRange, oSearchDesc)
+    If IsNull(oFoundRange) Then
+        ProcessSearchKey = False
+        Exit Function
     End If
 
-    ' If matched, then we want to select PAST the character
-    ' Else, this will counteract some weirdness. hack either way
-    If Not bIsBackwards And MODE = "VISUAL" Then
-        oTextCursor.goRight(1, bExpand)
+    ' Found something. Determine the found start position.
+    Dim oFoundStart As Object
+    Set oFoundStart = oFoundRange.getStart()
+
+    If bExpand Then
+        ' Visual mode: we need to select from the original position to the new position.
+        ' We'll create a range cursor that starts at the original start and ends at the appropriate point.
+        Dim oRangeCursor As Object
+        Set oRangeCursor = oTextCursor.getText().createTextCursorByRange(oOriginalStart)
+
+        If bIsBackwards Then
+            If bIsTill Then
+                ' T: select from the character after the found one to the original start.
+                ' That means we need to start at the end of the found character (the character after the found one),
+                ' and end at the original start. Since selection is directional, we can set start = afterFound, end = originalStart.
+                Dim oAfterFound As Object
+                Set oAfterFound = oTextCursor.getText().createTextCursorByRange(oFoundStart)
+                If Not oAfterFound.goRight(1, False) Then
+                    ' If at end, fall back to end of text
+                    Set oAfterFound = oTextCursor.getText().createTextCursorByRange(oTextCursor.getText().getEnd())
+                End If
+                oRangeCursor.gotoRange(oAfterFound.getStart(), False) ' start
+                oRangeCursor.gotoRange(oOriginalStart, True) ' expand to end
+            Else
+                ' F: select from the found character to the original start.
+                oRangeCursor.gotoRange(oFoundStart, False)
+                oRangeCursor.gotoRange(oOriginalStart, True)
+            End If
+        Else
+            If bIsTill Then
+                ' t: select from original start up to but not including the found character.
+                ' That means end at the start of the found character.
+                oRangeCursor.gotoRange(oOriginalStart, False)
+                oRangeCursor.gotoRange(oFoundStart, True)
+            Else
+                ' f: select from original start up to and including the found character.
+                oRangeCursor.gotoRange(oOriginalStart, False)
+                ' Move to the end of the found character (one character right)
+                Dim oAfterFound2 As Object
+                Set oAfterFound2 = oTextCursor.getText().createTextCursorByRange(oFoundStart)
+                If Not oAfterFound2.goRight(1, False) Then
+                    ' If at end, just use the end of text
+                    Set oAfterFound2 = oTextCursor.getText().createTextCursorByRange(oTextCursor.getText().getEnd())
+                End If
+                oRangeCursor.gotoRange(oAfterFound2.getStart(), True)
+            End If
+        End If
+
+        ' Set oTextCursor to that range
+        oTextCursor.gotoRange(oRangeCursor.getStart(), False)
+        oTextCursor.gotoRange(oRangeCursor.getEnd(), True)
+    Else
+        ' Normal mode: just move the cursor to the appropriate spot (for standalone motion).
+        If bIsBackwards Then
+            If bIsTill Then
+                ' T: move cursor to character after the found one
+                Dim oPosAfter As Object
+                Set oPosAfter = oTextCursor.getText().createTextCursorByRange(oFoundStart)
+                If Not oPosAfter.goRight(1, False) Then
+                    ' End of text – fall back to end
+                    oTextCursor.gotoRange(oTextCursor.getText().getEnd(), False)
+                Else
+                    oTextCursor.gotoRange(oPosAfter.getStart(), False)
+                End If
+            Else
+                ' F: move cursor to the found character
+                oTextCursor.gotoRange(oFoundStart, False)
+            End If
+        Else
+            If bIsTill Then
+                ' t: move cursor to character before the found one
+                Dim oPosBefore As Object
+                Set oPosBefore = oTextCursor.getText().createTextCursorByRange(oFoundStart)
+                If Not oPosBefore.goLeft(1, False) Then
+                    ' Start of text – fall back to start
+                    oTextCursor.gotoRange(oTextCursor.getText().getStart(), False)
+                Else
+                    oTextCursor.gotoRange(oPosBefore.getStart(), False)
+                End If
+            Else
+                ' f: move cursor to the found character
+                oTextCursor.gotoRange(oFoundStart, False)
+            End If
+        End If
     End If
 
     ProcessSearchKey = bMatched
-
 End Function
 
 Function GetSymbol(keyChar As Integer, modifier As String) As Boolean
@@ -1332,7 +1400,6 @@ Sub Undo(bUndo)
     ErrorHandler:
     Resume Next
 End Sub
-
 
 
 ' Yanks selection to system clipboard.
