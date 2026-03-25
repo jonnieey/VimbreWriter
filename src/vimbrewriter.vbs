@@ -396,6 +396,8 @@ Sub HandleCommand(keyChar As Integer)
             dispatcher.executeDispatch(ThisComponent.CurrentController.Frame, ".uno:Underline", "", 0, Array())
         Case 119 ' w -> save Document
             dispatcher.executeDispatch(ThisComponent.CurrentController.Frame, ".uno:Save", "", 0, Array())
+        Case 87 ' W -> Duplicate file
+            DuplicateDocument
         Case 93 ' ] -> Indent increase
             dispatcher.executeDispatch(ThisComponent.CurrentController.Frame, ".uno:IncrementIndent", "", 0, Array())
         Case 91 ' [ -> Indent decrease
@@ -1942,3 +1944,82 @@ Sub InsertBetweenChars(charToInsert As String)
     oVC.gotoRange(oRange.getStart(), False)
     oVC.goRight(Len(newText), False)
 End Sub
+
+Sub DuplicateDocument
+    Dim sURL As String, sDirURL As String, sFileName As String
+    Dim iLastSlash As Integer, iLastDot As Integer
+    Dim sBase As String, sExt As String
+    Dim sCandidateFileName As String, sCandidateURL As String
+    Dim iCounter As Integer
+    Dim sFilePath As String
+    Dim errNum As Integer, errDesc As String
+
+    On Local Error Goto ErrorHandler
+
+    ' Ensure we have a valid document  
+    If IsNull(ThisComponent) Then
+        MsgBox "Cannot duplicate: no document."
+        Exit Sub
+    End If
+
+    sURL = ThisComponent.getURL()
+    If sURL = "" Then
+        MsgBox "Cannot duplicate: document not saved yet."
+        Exit Sub
+    End If
+
+    ' Split URL into directory and filename (using forward slashes)  
+    iLastSlash = FindLastChar(sURL, "/")
+    If iLastSlash = 0 Then
+        sDirURL = ""
+        sFileName = sURL
+    Else
+        sDirURL = Left(sURL, iLastSlash) ' includes trailing slash  
+        sFileName = Mid(sURL, iLastSlash + 1)
+    End If
+
+    ' Split filename into base and extension  
+    iLastDot = FindLastChar(sFileName, ".")
+    If iLastDot = 0 Then
+        sBase = sFileName
+        sExt = ""
+    Else
+        sBase = Left(sFileName, iLastDot - 1)
+        sExt = Mid(sFileName, iLastDot)
+    End If
+
+    ' Find an unused filename  
+    iCounter = 0
+    Do
+        If iCounter = 0 Then
+            sCandidateFileName = sBase & ".copy" & sExt
+        Else
+            sCandidateFileName = sBase & ".copy-" & iCounter & sExt
+        End If
+        sCandidateURL = sDirURL & sCandidateFileName
+        sFilePath = ConvertFromURL(sCandidateURL)
+        If Not FileExists(sFilePath) Then Exit Do
+        iCounter = iCounter + 1
+    Loop
+
+    ' Save a copy to the new URL  
+    ThisComponent.storeToURL(sCandidateURL, Array())
+    MsgBox "Duplicated to: " & sFilePath
+    Exit Sub
+
+    ErrorHandler:
+    errNum = Err
+    errDesc = Error $
+    MsgBox "Error duplicating file: " & errNum & " - " & errDesc
+End Sub
+
+Function FindLastChar(sText As String, sChar As String) As Integer
+    Dim i As Integer
+    FindLastChar = 0
+    For i = Len(sText) To 1 Step - 1
+        If Mid(sText, i, 1) = sChar Then
+            FindLastChar = i
+            Exit For
+        End If
+    Next i
+End Function
